@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Amazon Alexa for Shopping Suppressor",
+  "version": "0.1.0",
+  "description": "Hides Amazon Alexa for Shopping/Rufus while repairing its docked layout state. No network, storage, remote code, background worker, or optional permissions.",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.amazon.ca/*",
+        "*://*.amazon.com.mx/*",
+        "*://*.amazon.com.br/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.amazon.de/*",
+        "*://*.amazon.fr/*",
+        "*://*.amazon.it/*",
+        "*://*.amazon.es/*",
+        "*://*.amazon.nl/*",
+        "*://*.amazon.com.be/*",
+        "*://*.amazon.se/*",
+        "*://*.amazon.pl/*",
+        "*://*.amazon.ie/*",
+        "*://*.amazon.com.tr/*",
+        "*://*.amazon.ae/*",
+        "*://*.amazon.sa/*",
+        "*://*.amazon.eg/*",
+        "*://*.amazon.co.za/*",
+        "*://*.amazon.co.jp/*",
+        "*://*.amazon.in/*",
+        "*://*.amazon.sg/*",
+        "*://*.amazon.com.au/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false,
+      "world": "ISOLATED"
+    }
+  ]
+}
