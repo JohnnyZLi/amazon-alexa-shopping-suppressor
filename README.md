@@ -5,7 +5,7 @@
 **Platform:** Chrome / Chromium, Manifest V3  
 **Purpose:** suppress Amazon's Alexa for Shopping / Rufus UI without leaving the large blank docked-sidebar gutter.
 
-This repository contains the frozen **v0.1.0 baseline**. Keep it intact so future Amazon changes can be compared against a version known to work.
+This folder is the frozen **v0.1.0 baseline**. Keep it intact so future Amazon changes can be compared against a version known to work.
 
 ## Why this exists
 
@@ -74,11 +74,11 @@ International domains are supported by scope, but **v0.1.0 is not claimed to be 
 
 ## Install in Chrome
 
-1. Clone or download this repository and keep the folder somewhere permanent. Chrome needs the folder to remain available after loading it unpacked.
+1. Keep this folder somewhere permanent. Chrome needs the folder to remain available after loading it unpacked.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
-5. Select the repository folder — the one containing `manifest.json`.
+5. Select this exact folder — the one containing `manifest.json`.
 6. Disable/remove Adios Alexa if it is still installed, so two suppressors are not fighting each other.
 7. Remove experimental Alexa/Rufus custom rules previously added to uBlock Origin Lite. uBO Lite itself can remain enabled normally.
 8. Close existing Amazon tabs and open a fresh Amazon tab for the first test.
@@ -92,7 +92,7 @@ If you edit `content.js` or `manifest.json`:
 3. Click **Reload**.
 4. Reload/open a fresh Amazon tab.
 
-Do not overwrite a known-good version when experimenting. Tag or branch known-good releases before making material changes.
+Do not overwrite this v0.1.0 folder when experimenting. Copy it to a new version folder first, e.g. `amazon-alexa-shopping-suppressor-v0.1.1`.
 
 ## Debugging
 
@@ -210,4 +210,4 @@ Use semantic-ish patch versions for maintenance:
 - `0.2.0` — material behavior or architecture change
 - `1.0.0` — after broader regression and international validation
 
-Always keep the last known-good release/tag instead of editing it in place.
+Always keep the last known-good folder instead of editing it in place.
