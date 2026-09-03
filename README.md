@@ -1,11 +1,11 @@
 # Amazon Alexa for Shopping Suppressor
 
-**Version:** 0.1.0  
-**Status:** baseline / known-good  
+**Version:** 0.1.1  
+**Status:** current / security-hardened  
 **Platform:** Chrome / Chromium, Manifest V3  
 **Purpose:** suppress Amazon's Alexa for Shopping / Rufus UI without leaving the large blank docked-sidebar gutter.
 
-This folder is the frozen **v0.1.0 baseline**. Keep it intact so future Amazon changes can be compared against a version known to work.
+This repository tracks the current hardened release. The original **v0.1.0 known-good baseline** remains available in Git history for regression comparison.
 
 ## Why this exists
 
@@ -24,11 +24,11 @@ The extension does **not** remove Amazon DOM nodes. It suppresses UI with stylin
 
 ## Security / privacy model
 
-v0.1.0 intentionally has a very small attack surface:
+v0.1.1 intentionally has a very small attack surface:
 
 - Manifest V3
-- **No `permissions` key**
-- No optional permissions
+- **No privileged Chrome API permissions** (`permissions` and `optional_permissions` are absent)
+- Content-script site access is limited to explicitly listed Amazon retail hosts over HTTPS
 - No background/service worker
 - No popup
 - No extension storage
@@ -38,13 +38,13 @@ v0.1.0 intentionally has a very small attack surface:
 - No cookies/history/downloads/webRequest access
 - No privileged Chrome APIs
 - One static content script running at `document_start`
-- Explicitly scoped only to supported Amazon retail storefronts
+- No wildcard access to arbitrary Amazon subdomains
 
 Everything the extension does is visible in `content.js` and `manifest.json`.
 
 ## Supported Amazon storefronts
 
-v0.1.0 explicitly includes 23 retail domains:
+v0.1.1 explicitly includes 23 retail domains:
 
 - United States — `amazon.com`
 - Canada — `amazon.ca`
@@ -70,7 +70,7 @@ v0.1.0 explicitly includes 23 retail domains:
 - Singapore — `amazon.sg`
 - Australia — `amazon.com.au`
 
-International domains are supported by scope, but **v0.1.0 is not claimed to be functionally validated on every marketplace**. See the test matrix below.
+Each marketplace is limited to its bare retail hostname and `www` hostname over HTTPS; arbitrary subdomains and HTTP are excluded. International domains are supported by scope, but **v0.1.1 is not claimed to be functionally validated on every marketplace**. See the test matrix below.
 
 ## Install in Chrome
 
@@ -92,7 +92,7 @@ If you edit `content.js` or `manifest.json`:
 3. Click **Reload**.
 4. Reload/open a fresh Amazon tab.
 
-Do not overwrite this v0.1.0 folder when experimenting. Copy it to a new version folder first, e.g. `amazon-alexa-shopping-suppressor-v0.1.1`.
+Do not edit a known-good release in place when experimenting. Use a new branch/version and keep the previous commit available for rollback.
 
 ## Debugging
 
@@ -126,11 +126,13 @@ Legend:
 - ⬜ = not yet tested
 - ⚠️ = regression / needs investigation
 
+The same core behavior was user-confirmed on v0.1.0; v0.1.1 should be revalidated after the selector-hardening change before marking rows confirmed.
+
 ### Core Amazon US regression matrix
 
-| Scenario | v0.1.0 | Expected behavior |
+| Scenario | v0.1.1 | Expected behavior |
 |---|---:|---|
-| Current Amazon US layout / normal browsing | ✅ | Alexa/Rufus suppressed; normal page width; no blank sidebar gutter |
+| Current Amazon US layout / normal browsing | ⬜ | Alexa/Rufus suppressed; normal page width; no blank sidebar gutter |
 | Homepage | ⬜ | No Alexa launcher/sidebar; page layout intact |
 | Search results | ⬜ | No Alexa/Rufus suggestion surfaces; results retain full usable width |
 | Product detail page | ⬜ | Ask/Rufus widgets suppressed; product content intact |
@@ -148,7 +150,7 @@ Legend:
 
 ### International smoke-test matrix
 
-| Storefront | v0.1.0 | Suggested pages |
+| Storefront | v0.1.1 | Suggested pages |
 |---|---:|---|
 | `amazon.co.uk` | ⬜ | home / search / product |
 | `amazon.de` | ⬜ | home / search / product |
@@ -180,7 +182,7 @@ The implementation deliberately separates three concerns:
 
 ### 1. Known UI suppression
 
-High-confidence Alexa/Rufus selectors are hidden directly. Broad Rufus/Nile patterns are used only to discover candidates, which then go through safety validation.
+Only exact, Rufus/Alexa-specific selectors are hidden directly by CSS. Substring selectors and generic attribute matches are guarded: they are used only to discover candidates and must pass `isSafeRufusCandidate()` before inline suppression is applied.
 
 ### 2. Dock-state repair
 
@@ -210,4 +212,4 @@ Use semantic-ish patch versions for maintenance:
 - `0.2.0` — material behavior or architecture change
 - `1.0.0` — after broader regression and international validation
 
-Always keep the last known-good folder instead of editing it in place.
+Always keep the last known-good commit/release available instead of editing history in place.

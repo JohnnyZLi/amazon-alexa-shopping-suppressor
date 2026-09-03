@@ -26,33 +26,27 @@
     hard: 'aas-hard-hide-style',
   });
 
-  // Known Alexa/Rufus UI. These selectors come from the working Adios Alexa 2.0.0
-  // implementation, but intentionally exclude its broadest catch-all selectors.
-  const HIGH_CONFIDENCE_SELECTORS = Object.freeze([
+  // Selectors safe enough for unconditional CSS suppression. These are exact,
+  // Rufus/Alexa-specific IDs/classes rather than substring or generic attribute matches.
+  // Keeping this set narrow ensures the CSS path preserves the same fail-open policy as
+  // the guarded JavaScript path below.
+  const STATIC_SAFE_SELECTORS = Object.freeze([
     // Nav / launcher
     '#nav-rufus-disco',
     '.nav-rufus-disco',
     '#nav-flyout-rufus',
     '.nav-rufus-content',
-    '#nav-xshop-container [href*="rufus"]',
-    '.nav-a[href*="rufus"]',
     '#Rufus',
 
     // Product-page / inline Ask widgets
     '#dpx-nice-widget-container',
     '.dpx-smidget-desktop-pill-list',
     '#dpx-rex-nice-widget-container',
-    '#ask_feature_div',
     '#nile-inline-btf_feature_div',
     '#nile-inline_feature_div',
-    '[data-feature-name="ask"]',
-    '[data-feature-name="nile-inline-btf"]',
-    '[data-feature-name="nile-inline"]',
 
     // Price-history / ingress surfaces
     '#rufus-price-ingress',
-    '[class*="rufus-ingress"]',
-    '[data-action*="show-rufus-price-ingress"]',
 
     // Sidebar / conversation UI
     '.rufus-panel-container',
@@ -68,17 +62,30 @@
     '.rufus-panel',
     '#rufus-wrapper',
     '.rufus-wrapper',
+
+    // Known search-result suggestion surfaces
+    '.rufus-pill',
+    '.s-ask-rufus-mshop-suggestion-container',
+    '.s-suggestion-nile-desktop-container',
+  ]);
+
+  // Known selectors that are useful but broad enough to require the JavaScript
+  // safety checks before any element is hidden. These never enter unconditional CSS.
+  const GUARDED_SELECTORS = Object.freeze([
+    '#nav-xshop-container [href*="rufus"]',
+    '.nav-a[href*="rufus"]',
+    '#ask_feature_div',
+    '[data-feature-name="ask"]',
+    '[data-feature-name="nile-inline-btf"]',
+    '[data-feature-name="nile-inline"]',
+    '[class*="rufus-ingress"]',
+    '[data-action*="show-rufus-price-ingress"]',
     '[id*="rufus"][id*="sidebar"]',
     '[class*="rufus"][class*="sidebar"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
     '[id*="rufus"][id*="panel"]',
     '[class*="rufus"][class*="panel"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
     '[id*="rufus"][id*="wrapper"]',
     '[class*="rufus"][class*="wrapper"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
-
-    // Known search-result suggestion surfaces
-    '.rufus-pill',
-    '.s-ask-rufus-mshop-suggestion-container',
-    '.s-suggestion-nile-desktop-container',
   ]);
 
   // Used only to FIND possible candidates. Every result still goes through
@@ -146,9 +153,14 @@
     'pageContent',
   ]);
 
-  const exactSelector = HIGH_CONFIDENCE_SELECTORS.join(',\n');
+  const staticSelector = STATIC_SAFE_SELECTORS.join(',\n');
+  const knownSelector = [
+    ...STATIC_SAFE_SELECTORS,
+    ...GUARDED_SELECTORS,
+  ].join(',');
   const candidateSelector = [
-    ...HIGH_CONFIDENCE_SELECTORS,
+    ...STATIC_SAFE_SELECTORS,
+    ...GUARDED_SELECTORS,
     ...HEURISTIC_CANDIDATE_SELECTORS,
   ].join(',');
 
@@ -185,7 +197,7 @@
   function installSoftHideCSS() {
     // Preserve display and dimensions so Amazon can initialize its own Rufus code.
     injectStyle(STYLE_IDS.soft, `
-${exactSelector} {
+${staticSelector} {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -202,7 +214,7 @@ body.rufus-docked-right {
 
   function installHardHideCSS() {
     injectStyle(STYLE_IDS.hard, `
-${exactSelector} {
+${staticSelector} {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
@@ -271,7 +283,7 @@ body.rufus-docked-right {
     const slot = String(element.getAttribute('data-csa-c-slot-id') || '').toLowerCase();
 
     try {
-      if (element.matches && element.matches(HIGH_CONFIDENCE_SELECTORS.join(','))) return true;
+      if (element.matches && element.matches(knownSelector)) return true;
     } catch {
       // Fall through to conservative string checks.
     }

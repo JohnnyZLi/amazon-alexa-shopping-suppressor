@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 — 2026-09-03
+
+Security-hardening release with no intended change to Alexa/Rufus suppression behavior.
+
+- Narrowed content-script scope from `*://*.amazon...` patterns to exact bare/`www` retail hosts over HTTPS only.
+- Removed execution on arbitrary Amazon subdomains and HTTP pages.
+- Split Rufus/Alexa selectors into unconditional `STATIC_SAFE_SELECTORS` and JavaScript-guarded `GUARDED_SELECTORS`.
+- Broad substring/generic attribute selectors now pass through `isSafeRufusCandidate()` instead of bypassing fail-open checks through CSS.
+- Updated README security wording to distinguish privileged Chrome API permissions from content-script site access.
+
 ## 0.1.0 — 2026-09-01
 
 Initial known-good baseline.
