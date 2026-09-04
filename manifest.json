@@ -1,9 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Amazon Alexa for Shopping Suppressor",
-  "version": "0.2.0",
-  "description": "Removes Alexa for Shopping/Rufus from Amazon and repairs the blank sidebar gutter. Runs locally with no tracking.",
+  "version": "0.3.0",
+  "description": "Removes Alexa for Shopping/Rufus from Amazon and repairs the blank sidebar gutter. Includes a local on/off toggle and no tracking.",
   "homepage_url": "https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_title": "Alexa Shopping Suppressor",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": [
