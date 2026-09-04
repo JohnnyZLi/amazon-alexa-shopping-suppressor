@@ -14,15 +14,18 @@ If private reporting is unavailable, open a minimal GitHub issue requesting a pr
 
 The extension intentionally has a narrow capability surface:
 
-- no privileged Chrome API permissions;
+- exactly one Chrome API permission: `storage`;
+- `chrome.storage.local` is used only for the boolean `enabled` on/off preference;
 - no background/service worker;
 - no network access;
-- no storage or telemetry;
+- no telemetry;
 - no remote code or runtime dependencies;
+- no `tabs`, `scripting`, `activeTab`, history, downloads, cookies, or webRequest permissions;
 - isolated Manifest V3 content-script execution;
 - explicit HTTPS-only Amazon retail host scope;
 - fail-open candidate validation before broad Rufus/Alexa suppression;
 - automatic restoration of inline styles if a managed dynamic element stops matching the safety policy;
+- user-triggered disable restores extension-managed element styles and recorded Rufus dock state;
 - no operation on recognized checkout and returns routes.
 
-Changes that add network access, storage, remote code, broader site access, or privileged Chrome permissions require explicit documentation and security review.
+Changes that add network access, additional persisted state, remote code, broader site access, or any Chrome permission beyond `storage` require explicit documentation and security review.
