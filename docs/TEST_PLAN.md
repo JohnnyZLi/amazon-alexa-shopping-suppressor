@@ -1,6 +1,29 @@
-# v0.2.0 manual browser regression plan
+# v0.2.0 release-candidate test plan
 
-Run these checks against the exact code on `main` before creating a `v0.2.0` tag. Test with the extension loaded unpacked from a clean checkout or extracted release ZIP.
+Run these checks against the exact release candidate before promoting it to `1.0.0`. Test with the extension loaded unpacked from a clean checkout or from the extracted CI candidate ZIP.
+
+## Automated preflight
+
+Every push and pull request now runs two layers of automated validation:
+
+1. `python scripts/validate.py` — Manifest V3 scope, icons, JavaScript syntax, forbidden capability checks, sensitive-flow hardening markers, and selector safety invariants.
+2. `python scripts/browser_smoke.py` — synthetic regression checks inside a real headless Chromium DOM.
+
+The synthetic Chromium suite covers:
+
+- immediate soft-hide and later hard-hide behavior,
+- guarded Rufus candidate suppression,
+- Amazon page-shell protection,
+- restoration when a managed element loses Rufus/Alexa identity,
+- re-suppression after an inline-style rewrite,
+- explicit dock-state repair,
+- preservation of unrelated large body padding,
+- inactivity on known checkout/returns paths,
+- restoration when navigating into a sensitive flow and resumption when navigating back to a safe flow.
+
+These tests intentionally accelerate production timers and inject a test-only pathname hook into an in-memory copy of `content.js`. The runtime source included in the packaged extension is not modified.
+
+Automated tests reduce regression risk but do **not** replace the live Amazon checks below, because only a real Amazon session can validate current production DOM behavior, account/cart/order pages, checkout/returns flows, international variants, and long-lived-tab behavior.
 
 ## Test setup
 
@@ -42,7 +65,7 @@ A scenario passes only when all applicable conditions hold:
 
 ## Dynamic mutation checks
 
-These are especially important for v0.2.0 because the code now restores and reapplies managed inline styles.
+These are especially important for v0.2.0 because the code now restores and reapplies managed inline styles. The synthetic suite exercises both mechanisms; this section confirms them against Amazon's live DOM.
 
 - [ ] Open DevTools Elements and identify a guarded Rufus container.
 - [ ] Temporarily remove one of the extension-applied inline suppression properties.
@@ -69,6 +92,10 @@ At minimum before claiming broad marketplace validation:
 - [ ] `amazon.com.au` — home / search / product.
 
 For marketplaces not manually tested, describe them as supported by manifest scope but not validated.
+
+## Exact-candidate evidence
+
+On each CI run, the validation workflow uploads the deterministic ZIP and its SHA-256 file as an `extension-candidate-<commit SHA>` artifact. Use the artifact from the exact commit being considered for `1.0.0` so the manually tested bytes are the same bytes promoted to release.
 
 ## Regression evidence
 
