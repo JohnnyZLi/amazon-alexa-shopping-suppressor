@@ -9,7 +9,7 @@
    * - Prefer false negatives over false positives: never hide page-shell/main-content elements.
    * - Restore inline styles if a dynamic element stops being a Rufus/Alexa candidate.
    * - Stay entirely inactive on sensitive checkout/returns flows.
-   * - No network requests, persistence, remote dependencies, or privileged Chrome APIs.
+   * - No network requests or remote dependencies; Chrome storage is used only for the local on/off preference.
    */
 
   const CONFIG = Object.freeze({
@@ -21,6 +21,8 @@
     SCAN_DEBOUNCE_MS: 80,
     LARGE_DOCK_PADDING_PX: 200,
   });
+
+  const STORAGE_KEY = 'enabled';
 
   const STYLE_IDS = Object.freeze({
     soft: 'aas-soft-hide-style',
@@ -177,6 +179,7 @@
     ...HEURISTIC_CANDIDATE_SELECTORS,
   ].join(',');
 
+  let userEnabled = true;
   let active = false;
   let aggressiveMode = false;
   let domContentLoaded = document.readyState !== 'loading';
@@ -198,6 +201,39 @@
 
   function warn(...args) {
     if (CONFIG.DEBUG) console.warn('[AlexaSuppressor]', ...args);
+  }
+
+  function hasStorageAPI() {
+    return typeof chrome !== 'undefined'
+      && chrome.storage
+      && chrome.storage.local
+      && chrome.storage.onChanged;
+  }
+
+  async function readEnabledPreference() {
+    if (!hasStorageAPI()) return true;
+    try {
+      const stored = await chrome.storage.local.get({ [STORAGE_KEY]: true });
+      return stored[STORAGE_KEY] !== false;
+    } catch (error) {
+      warn('Could not read enabled preference; defaulting to enabled.', error);
+      return true;
+    }
+  }
+
+  function startPreferenceObserver() {
+    if (!hasStorageAPI()) return;
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes[STORAGE_KEY]) return;
+      const enabled = changes[STORAGE_KEY].newValue !== false;
+      if (enabled === userEnabled) return;
+      userEnabled = enabled;
+      if (!userEnabled) {
+        deactivate('disabled by user');
+        return;
+      }
+      if (!isSensitiveFlow()) activate('enabled by user');
+    });
   }
 
   function isSensitiveFlow() {
@@ -688,7 +724,7 @@ body.rufus-docked-right {
   }
 
   function activate(reason) {
-    if (active || isSensitiveFlow()) return;
+    if (!userEnabled || active || isSensitiveFlow()) return;
     active = true;
     aggressiveMode = false;
     startedAt = performance.now();
@@ -708,6 +744,10 @@ body.rufus-docked-right {
   }
 
   function onNavigationSignal(eventName) {
+    if (!userEnabled) {
+      deactivate(`${eventName}: disabled by user`);
+      return;
+    }
     if (isSensitiveFlow()) {
       deactivate(`${eventName}: sensitive flow`);
       return;
@@ -719,7 +759,7 @@ body.rufus-docked-right {
     }
   }
 
-  function boot() {
+  async function boot() {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         domContentLoaded = true;
@@ -744,6 +784,13 @@ body.rufus-docked-right {
     window.addEventListener('pageshow', () => onNavigationSignal('pageshow'));
     window.addEventListener('popstate', () => onNavigationSignal('popstate'));
 
+    startPreferenceObserver();
+    userEnabled = await readEnabledPreference();
+    if (!userEnabled) {
+      log('Disabled by user; extension remains inactive.');
+      return;
+    }
+
     if (isSensitiveFlow()) {
       log('Sensitive flow detected; extension remains inactive.');
       return;
@@ -752,10 +799,8 @@ body.rufus-docked-right {
     activate('initial document');
   }
 
-  try {
-    boot();
-  } catch (error) {
+  boot().catch((error) => {
     try { deactivate('fatal initialization error'); } catch { /* best effort */ }
     warn('Fatal initialization error; extension deactivated.', error);
-  }
+  });
 })();
