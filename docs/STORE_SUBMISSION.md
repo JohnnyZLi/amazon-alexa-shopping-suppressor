@@ -16,6 +16,7 @@ This document tracks the remaining work between the current release candidate an
 - [x] Deterministic packaging script
 - [x] CI validation
 - [x] Tag-driven GitHub release packaging
+- [x] Manual browser regression plan documented in `docs/TEST_PLAN.md`
 - [ ] Complete browser regression matrix on the exact release ZIP
 - [ ] Decide whether all 23 storefronts remain in the first Web Store release or only validated marketplaces
 
@@ -32,31 +33,30 @@ Do not use Amazon, Alexa, or Rufus logos as extension artwork.
 - [ ] 440x280 promotional tile
 - [ ] Optional 1400x560 marquee image
 
-## Suggested listing copy
+## Listing copy
+
+- [x] Full listing draft in `docs/STORE_LISTING.md`
+- [x] Single-purpose statement drafted
+- [x] Site-access justification drafted
+- [x] Remote-code declaration drafted
+- [x] Data-use disclosure drafted
+- [x] Unofficial/non-affiliation statement drafted
+- [x] Screenshot shot list drafted
 
 **Working title:** Alexa Shopping Suppressor for Amazon
 
 **Short description:** Removes Alexa for Shopping/Rufus and fixes its blank sidebar gutter. Open source, local-only, no tracking.
-
-**Single purpose:** Suppress Amazon's Alexa for Shopping/Rufus interface and repair page layout space reserved for its docked sidebar.
-
-**Site-access justification:** The extension must read and modify DOM elements on supported Amazon retail pages to identify Alexa/Rufus interface surfaces, hide them, and remove Rufus-specific dock layout state. Processing is local to the browser.
-
-**Remote code:** No.
-
-**Data collection:** None.
-
-Include prominently in the listing: **Unofficial; not affiliated with or endorsed by Amazon.**
 
 ## Legal / policy
 
 - [x] MIT license
 - [x] Privacy policy in repository
 - [x] Security policy in repository
+- [x] Public support guidance in `SUPPORT.md`
 - [ ] Publish privacy policy at a stable public URL suitable for the Web Store dashboard
 - [ ] Confirm developer account and 2-Step Verification
 - [ ] Pay/confirm Chrome Web Store developer registration fee
-- [ ] Review final listing against current Chrome Web Store policies before submission
+- [ ] Review final listing against current Chrome Web Store policies immediately before submission
 
 ## Release procedure
 
@@ -65,7 +65,7 @@ Include prominently in the listing: **Unofficial; not affiliated with or endorse
 3. Run `python scripts/validate.py`.
 4. Run `python scripts/package.py`.
 5. Test the exact ZIP from `dist/` by loading it unpacked from an extracted copy.
-6. Complete the regression matrix.
+6. Complete `docs/TEST_PLAN.md`.
 7. Commit and push.
 8. Tag the exact commit as `vX.Y.Z`.
 9. The release workflow validates, packages, and creates the GitHub Release with the ZIP and SHA-256 file.
