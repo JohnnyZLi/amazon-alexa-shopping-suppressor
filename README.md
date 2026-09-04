@@ -46,7 +46,7 @@ v0.2.0 intentionally has a small attack surface:
 - Generic numeric dock padding is changed only with explicit Rufus dock evidence
 - Recognized checkout and returns routes are intentionally inactive
 
-See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md).
+See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and [SUPPORT.md](SUPPORT.md).
 
 ## Supported Amazon storefronts
 
@@ -120,6 +120,8 @@ v0.1.0 was user-confirmed on the original Amazon US failure case. v0.2.0 changes
 
 International smoke tests should include at least `amazon.co.uk`, `amazon.de`, `amazon.co.jp`, `amazon.in`, and `amazon.com.au` before 1.0.0.
 
+The detailed manual procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The open regression tracker is GitHub issue #2.
+
 ## Acceptance criteria for 1.0.0
 
 - Alexa for Shopping / Rufus never becomes meaningfully visible on supported non-sensitive pages.
@@ -140,7 +142,11 @@ International smoke tests should include at least `amazon.co.uk`, `amazon.de`, `
 
 The runtime engine and release infrastructure are now in release-candidate shape. Remaining work is primarily browser regression testing, original visual assets/icons, final marketplace scope decisions, and Web Store listing/policy setup.
 
-See [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md).
+- [Chrome Web Store checklist](docs/STORE_SUBMISSION.md)
+- [Store listing draft](docs/STORE_LISTING.md)
+- [Manual regression plan](docs/TEST_PLAN.md)
+- [Release notes template](docs/RELEASE_NOTES_TEMPLATE.md)
+- [Static privacy-policy page](docs/PRIVACY_POLICY.html)
 
 ## License
 
