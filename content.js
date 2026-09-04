@@ -194,6 +194,8 @@
 
   const managedElements = new Set();
   const originalInlineStyles = new WeakMap();
+  const removedDockClasses = new Set();
+  const removedDockStyles = new Map();
 
   function log(...args) {
     if (CONFIG.DEBUG) console.debug('[AlexaSuppressor]', ...args);
@@ -229,7 +231,7 @@
       if (enabled === userEnabled) return;
       userEnabled = enabled;
       if (!userEnabled) {
-        deactivate('disabled by user');
+        deactivate('disabled by user', true);
         return;
       }
       if (!isSensitiveFlow()) activate('enabled by user');
@@ -470,6 +472,35 @@ body.rufus-docked-right {
     return Number.isFinite(numeric) && numeric > CONFIG.LARGE_DOCK_PADDING_PX;
   }
 
+  function rememberRemovedDockClass(body, className) {
+    if (body.classList.contains(className)) removedDockClasses.add(className);
+  }
+
+  function rememberRemovedDockStyle(body, property) {
+    const value = body.style.getPropertyValue(property);
+    if (!value) return;
+    removedDockStyles.set(property, {
+      value,
+      priority: body.style.getPropertyPriority(property),
+    });
+  }
+
+  function clearDockingState() {
+    removedDockClasses.clear();
+    removedDockStyles.clear();
+  }
+
+  function restoreDockingState() {
+    const body = document.body;
+    if (body) {
+      for (const className of removedDockClasses) body.classList.add(className);
+      for (const [property, original] of removedDockStyles.entries()) {
+        body.style.setProperty(property, original.value, original.priority || '');
+      }
+    }
+    clearDockingState();
+  }
+
   function repairDocking() {
     if (!active || isSensitiveFlow()) return false;
     const body = document.body;
@@ -483,6 +514,7 @@ body.rufus-docked-right {
 
     for (const className of RUFUS_DOCK_CLASSES) {
       if (body.classList.contains(className)) {
+        rememberRemovedDockClass(body, className);
         body.classList.remove(className);
         changed = true;
       }
@@ -490,6 +522,7 @@ body.rufus-docked-right {
 
     for (const property of RUFUS_DOCK_PROPERTIES) {
       if (body.style.getPropertyValue(property)) {
+        rememberRemovedDockStyle(body, property);
         body.style.removeProperty(property);
         changed = true;
       }
@@ -501,14 +534,17 @@ body.rufus-docked-right {
       const top = body.style.getPropertyValue('padding-top');
 
       if (isLargeDockPadding(left)) {
+        rememberRemovedDockStyle(body, 'padding-left');
         body.style.removeProperty('padding-left');
         changed = true;
       }
       if (isLargeDockPadding(right)) {
+        rememberRemovedDockStyle(body, 'padding-right');
         body.style.removeProperty('padding-right');
         changed = true;
       }
       if (hadDockClass && isLargeDockPadding(top)) {
+        rememberRemovedDockStyle(body, 'padding-top');
         body.style.removeProperty('padding-top');
         changed = true;
       }
@@ -707,8 +743,12 @@ body.rufus-docked-right {
     scanAnimationFrame = null;
   }
 
-  function deactivate(reason) {
-    if (!active) return;
+  function deactivate(reason, restoreDock = false) {
+    if (!active) {
+      if (restoreDock) restoreDockingState();
+      else clearDockingState();
+      return;
+    }
     active = false;
     aggressiveMode = false;
     clearScheduledWork();
@@ -720,6 +760,8 @@ body.rufus-docked-right {
     bodyWaitObserver = null;
     removeInjectedStyles();
     restoreAllManagedElements();
+    if (restoreDock) restoreDockingState();
+    else clearDockingState();
     log('Inactive:', reason);
   }
 
@@ -745,7 +787,7 @@ body.rufus-docked-right {
 
   function onNavigationSignal(eventName) {
     if (!userEnabled) {
-      deactivate(`${eventName}: disabled by user`);
+      deactivate(`${eventName}: disabled by user`, true);
       return;
     }
     if (isSensitiveFlow()) {
