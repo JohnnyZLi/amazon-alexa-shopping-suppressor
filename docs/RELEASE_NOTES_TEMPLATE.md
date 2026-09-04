@@ -8,15 +8,19 @@
 
 ### Privacy / permissions
 
-- No privileged Chrome API permissions added.
-- No analytics, telemetry, extension storage, network requests, remote code, or background service worker.
+- Exactly one Chrome API permission is present: `storage`, used only for the local boolean On/Off preference.
+- No analytics, telemetry, network requests, remote code, or background service worker.
+- No tabs, scripting, activeTab, history, downloads, cookies, or webRequest permissions.
+- No Amazon page-derived data is persisted or transmitted.
 - Site access remains limited to explicitly listed Amazon retail storefronts over HTTPS.
 
 ### Validation
 
 - [ ] `python scripts/validate.py`
+- [ ] `python scripts/browser_smoke.py`
 - [ ] deterministic package built with `python scripts/package.py`
 - [ ] exact release ZIP manually tested
+- [ ] toolbar On/Off and persistence matrix completed
 - [ ] Amazon US core matrix completed
 - [ ] checkout and returns sensitive-flow tests completed
 - [ ] international smoke tests completed for claimed validated marketplaces
