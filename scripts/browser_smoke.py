@@ -10,6 +10,7 @@ from playwright.async_api import Browser, Page, async_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT = ROOT / "content.js"
+POPUP = ROOT / "popup.js"
 
 # Execute the production content script inside a real Chromium DOM, but shorten
 # timers and inject a test-only pathname hook so CI does not wait for production
@@ -26,6 +27,7 @@ SOURCE = (
         "const path = String(window.__AAS_TEST_PATH__ || location.pathname || '/');",
     )
 )
+POPUP_SOURCE = POPUP.read_text(encoding="utf-8")
 
 EXPECTED_REPLACEMENTS = {
     "INIT_POLL_MS: 10",
@@ -56,10 +58,49 @@ def find_browser() -> str:
     raise AssertionError("unreachable")
 
 
-async def new_page(browser: Browser, html: str, path: str = "/") -> Page:
+async def install_fake_storage(page: Page, enabled: bool) -> None:
+    await page.evaluate(
+        """
+        enabled => {
+          window.__AAS_STORAGE_ENABLED__ = enabled;
+          window.__AAS_STORAGE_LISTENERS__ = [];
+          window.chrome = window.chrome || {};
+          window.chrome.storage = {
+            local: {
+              get: async defaults => ({ ...defaults, enabled: window.__AAS_STORAGE_ENABLED__ }),
+              set: async values => {
+                if (!Object.prototype.hasOwnProperty.call(values, 'enabled')) return;
+                const oldValue = window.__AAS_STORAGE_ENABLED__;
+                const newValue = values.enabled;
+                window.__AAS_STORAGE_ENABLED__ = newValue;
+                if (oldValue === newValue) return;
+                const changes = { enabled: { oldValue, newValue } };
+                for (const listener of [...window.__AAS_STORAGE_LISTENERS__]) {
+                  listener(changes, 'local');
+                }
+              },
+            },
+            onChanged: {
+              addListener: listener => window.__AAS_STORAGE_LISTENERS__.push(listener),
+            },
+          };
+        }
+        """,
+        enabled,
+    )
+
+
+async def new_page(
+    browser: Browser,
+    html: str,
+    path: str = "/",
+    storage_enabled: bool | None = None,
+) -> Page:
     page = await browser.new_page()
     await page.set_content(html)
     await page.evaluate("path => { window.__AAS_TEST_PATH__ = path; }", path)
+    if storage_enabled is not None:
+        await install_fake_storage(page, storage_enabled)
     await page.add_script_tag(content=SOURCE)
     return page
 
@@ -205,6 +246,89 @@ async def assert_sensitive_transition_restore_and_resume(browser: Browser) -> No
     await page.close()
 
 
+async def assert_startup_disabled(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=False,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert await page.locator('style[id^="aas-"]').count() == 0
+    state = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in state["cls"]
+    assert state["pad"] == "320px"
+    assert state["prop"] == "320px"
+    await page.close()
+
+
+async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert "rufus-docked-left" not in await page.eval_on_selector("body", "element => element.className")
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert (await computed(page, "#candidate", "width")).startswith("123")
+    assert await page.locator('style[id^="aas-"]').count() == 0
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["pad"] == "320px"
+    assert restored["prop"] == "320px"
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: true })")
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    repaired = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in repaired["cls"]
+    assert repaired["pad"] == ""
+    assert repaired["prop"] == ""
+    await page.close()
+
+
+async def assert_popup_toggle(browser: Browser) -> None:
+    page = await browser.new_page()
+    await page.set_content(
+        '<html><body><input id="enabled" type="checkbox" checked><span id="status"></span></body></html>'
+    )
+    await install_fake_storage(page, True)
+    await page.add_script_tag(content=POPUP_SOURCE)
+    await page.wait_for_timeout(20)
+    assert await page.is_checked("#enabled")
+    assert await page.text_content("#status") == "On"
+
+    await page.click("#enabled")
+    await page.wait_for_timeout(30)
+    assert not await page.is_checked("#enabled")
+    assert await page.text_content("#status") == "Off"
+    assert await page.evaluate("() => window.__AAS_STORAGE_ENABLED__") is False
+    await page.close()
+
+
 async def run() -> None:
     missing = sorted(item for item in EXPECTED_REPLACEMENTS if item not in SOURCE)
     if missing:
@@ -220,6 +344,9 @@ async def run() -> None:
         ("unrelated body padding preservation", assert_unrelated_padding_preserved),
         ("sensitive-route inactivity", assert_sensitive_routes_inactive),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
+        ("startup disabled leaves Amazon untouched", assert_startup_disabled),
+        ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
+        ("popup persists toggle state", assert_popup_toggle),
     ]
 
     async with async_playwright() as playwright:
