@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import sys
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +50,21 @@ FORBIDDEN_SOURCE_PATTERNS = {
     "Function constructor": r"\bnew\s+Function\b",
     "dynamic import": r"\bimport\s*\(",
 }
+
+EXPECTED_ICONS = {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png",
+}
+
+
+def png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        fail(f"invalid PNG file: {path.relative_to(ROOT)}")
+    return struct.unpack(">II", data[16:24])
+
 
 REQUIRED_SOURCE_MARKERS = [
     "STATIC_SAFE_SELECTORS",
@@ -105,6 +121,19 @@ def main() -> None:
     if script.get("world") != "ISOLATED":
         fail("content script must run in ISOLATED world")
 
+    icons = manifest.get("icons")
+    if icons != EXPECTED_ICONS:
+        fail(f"manifest icons must exactly match {EXPECTED_ICONS}")
+
+    for size_text, relative in EXPECTED_ICONS.items():
+        path = ROOT / relative
+        if not path.is_file():
+            fail(f"missing extension icon: {relative}")
+        expected = int(size_text)
+        width, height = png_dimensions(path)
+        if (width, height) != (expected, expected):
+            fail(f"{relative} must be {expected}x{expected}, got {width}x{height}")
+
     for label, pattern in FORBIDDEN_SOURCE_PATTERNS.items():
         if re.search(pattern, source):
             fail(f"forbidden source capability detected: {label}")
@@ -131,7 +160,7 @@ def main() -> None:
     except subprocess.CalledProcessError as exc:
         fail(f"content.js syntax check failed with exit code {exc.returncode}")
 
-    print(f"PASS: Manifest v3 scope and content.js security checks ({version})")
+    print(f"PASS: Manifest v3 scope, icon assets, and content.js security checks ({version})")
 
 
 if __name__ == "__main__":
