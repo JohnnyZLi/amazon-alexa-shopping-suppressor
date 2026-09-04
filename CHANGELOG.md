@@ -1,16 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-09-04
 
-Release-preflight automation and publication preparation.
+User control plus release-preflight automation and publication preparation.
 
+- Added a toolbar popup with a persistent **Suppressor On/Off** switch.
+- Added exactly one Chrome API permission, `storage`, used only for the local boolean `enabled` preference.
+- Turning the suppressor Off immediately disconnects observers/timers, removes injected styles, restores managed Rufus element styles, and restores Rufus dock classes/styles removed by the extension on the current page.
+- Turning the suppressor back On resumes suppression immediately on non-sensitive Amazon pages without requiring a reload.
+- Disabled-at-start behavior leaves Amazon untouched while preserving the Off preference across Chrome restarts.
+- Added popup assets to deterministic release packaging and expanded static validation to enforce the storage-only permission/API policy.
+- Added synthetic Chromium coverage for startup-disabled behavior, live Off→On restoration/resumption, and popup preference persistence.
 - Added a synthetic Chromium regression suite that executes the production content script against controlled DOM fixtures.
 - Added automated checks for soft/hard suppression, guarded-selector safety, page-shell protection, dynamic style restoration, style rewrite re-suppression, dock repair, sensitive-route inactivity, and safe/sensitive navigation transitions.
 - Added the synthetic browser suite to push/PR CI and to the tag-driven release workflow.
 - CI now uploads the exact deterministic candidate ZIP and SHA-256 artifact for manual validation.
 - Added a pinned development-only Playwright dependency; the runtime extension remains dependency-free.
 - Added GitHub Pages-ready landing and privacy-policy routes under `docs/`.
-- Updated the release test plan and Chrome Web Store checklist to distinguish automated preflight from required live Amazon validation.
+- Updated the release test plan, privacy/security documentation, and Chrome Web Store checklist to distinguish automated preflight from required live Amazon validation.
 
 ## 0.2.0 — 2026-09-04
 
