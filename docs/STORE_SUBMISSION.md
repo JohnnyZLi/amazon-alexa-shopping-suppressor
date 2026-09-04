@@ -16,22 +16,29 @@ This document tracks the remaining work between the current release candidate an
 - [x] Deterministic packaging script
 - [x] CI validation
 - [x] Tag-driven GitHub release packaging
+- [x] Manifest icon set: 16, 32, 48, 128 px
+- [x] Validator checks icon presence and exact PNG dimensions
 - [x] Manual browser regression plan documented in `docs/TEST_PLAN.md`
 - [ ] Complete browser regression matrix on the exact release ZIP
 - [ ] Decide whether all 23 storefronts remain in the first Web Store release or only validated marketplaces
 
 ## Branding / listing assets
 
-Do not use Amazon, Alexa, or Rufus logos as extension artwork.
+All extension artwork is original and does not use Amazon, Alexa, or Rufus logos.
 
-- [ ] Original 16x16 PNG icon
-- [ ] Original 32x32 PNG icon
-- [ ] Original 48x48 PNG icon
-- [ ] Original 128x128 PNG icon
-- [ ] Add manifest `icons` entries
-- [ ] 1280x800 screenshots showing normal-width Amazon pages with Alexa/Rufus suppressed
-- [ ] 440x280 promotional tile
-- [ ] Optional 1400x560 marquee image
+- [x] Original 16x16 PNG icon
+- [x] Original 32x32 PNG icon
+- [x] Original 48x48 PNG icon
+- [x] Original 128x128 PNG icon
+- [x] Manifest `icons` entries
+- [x] 1280x800 before/after screenshot
+- [x] 1280x800 full-width result screenshot
+- [x] 1280x800 targeted-UI screenshot
+- [x] 440x280 promotional tile
+- [x] Optional 1400x560 marquee image
+- [x] Source screenshots cropped to remove account name, delivery address, and other identifying header information
+
+The Chrome Web Store graphics are distributed as a separate submission bundle rather than inside the runtime extension ZIP. See `docs/ASSETS.md`.
 
 ## Listing copy
 
@@ -41,7 +48,8 @@ Do not use Amazon, Alexa, or Rufus logos as extension artwork.
 - [x] Remote-code declaration drafted
 - [x] Data-use disclosure drafted
 - [x] Unofficial/non-affiliation statement drafted
-- [x] Screenshot shot list drafted
+- [x] Stable public privacy-policy URL selected
+- [x] Public support URL selected
 
 **Working title:** Alexa Shopping Suppressor for Amazon
 
@@ -53,20 +61,34 @@ Do not use Amazon, Alexa, or Rufus logos as extension artwork.
 - [x] Privacy policy in repository
 - [x] Security policy in repository
 - [x] Public support guidance in `SUPPORT.md`
-- [ ] Publish privacy policy at a stable public URL suitable for the Web Store dashboard
-- [ ] Confirm developer account and 2-Step Verification
+- [x] Privacy policy URL: https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/blob/main/PRIVACY.md
+- [x] Support URL: https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/issues
+- [ ] Confirm Chrome Web Store developer account
+- [ ] Confirm 2-Step Verification on the publisher Google account
 - [ ] Pay/confirm Chrome Web Store developer registration fee
 - [ ] Review final listing against current Chrome Web Store policies immediately before submission
 
+## Manual actions that cannot be automated from this repository
+
+The following require the publisher's authenticated Google/Chrome session and cannot be completed by GitHub Actions:
+
+1. Chrome Web Store developer registration/payment.
+2. Publisher identity/account settings and 2-Step Verification.
+3. Uploading the final ZIP and store graphics to the Web Store dashboard.
+4. Completing the dashboard privacy/permission declarations.
+5. Clicking the final submission/publish controls.
+
 ## Release procedure
 
-1. Update `manifest.json` version.
-2. Update `CHANGELOG.md` and README status.
-3. Run `python scripts/validate.py`.
-4. Run `python scripts/package.py`.
-5. Test the exact ZIP from `dist/` by loading it unpacked from an extracted copy.
-6. Complete `docs/TEST_PLAN.md`.
-7. Commit and push.
-8. Tag the exact commit as `vX.Y.Z`.
-9. The release workflow validates, packages, and creates the GitHub Release with the ZIP and SHA-256 file.
-10. Submit that exact ZIP to the Chrome Web Store.
+1. Complete `docs/TEST_PLAN.md` on the exact candidate build.
+2. Resolve regressions, if any.
+3. Decide first-release marketplace scope.
+4. Update `manifest.json` version to `1.0.0`.
+5. Update `CHANGELOG.md` and README status.
+6. Run `python scripts/validate.py`.
+7. Run `python scripts/package.py`.
+8. Test the exact ZIP from `dist/` by extracting it and loading that extracted copy unpacked.
+9. Commit and push.
+10. Tag the exact commit as `v1.0.0`.
+11. The release workflow validates, packages, and creates the GitHub Release with ZIP + SHA-256.
+12. Submit that exact ZIP and the separate Web Store graphics bundle to the Chrome Web Store.
