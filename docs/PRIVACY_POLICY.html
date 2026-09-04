@@ -13,15 +13,17 @@
 <body>
   <h1>Privacy Policy</h1>
   <p><strong>Alexa Shopping Suppressor for Amazon</strong></p>
-  <p>This extension does not collect, store, transmit, sell, or share personal data, browsing history, Amazon account information, purchase information, or page contents.</p>
+  <p>This extension does not collect, transmit, sell, or share personal data, browsing history, Amazon account information, purchase information, or page contents.</p>
   <h2>Local page processing</h2>
   <p>The extension reads and modifies DOM information on supported Amazon retail pages only to identify Alexa for Shopping / Rufus interface elements, suppress them, and repair related docked layout state. This processing occurs locally in the browser.</p>
+  <h2>Local On/Off preference</h2>
+  <p>The extension stores exactly one local preference using <code>chrome.storage.local</code>: a boolean named <code>enabled</code> that remembers whether the suppressor is On or Off. This setting is not derived from Amazon page content and is never transmitted anywhere. It remains until the user changes it, clears extension data, or removes the extension.</p>
   <h2>No telemetry or remote communication</h2>
-  <p>The extension contains no analytics or telemetry, makes no network requests, uses no remote code or remote dependencies, and does not send page information to the developer or any third party.</p>
-  <h2>No persistent extension data</h2>
-  <p>The extension does not use Chrome extension storage, <code>localStorage</code>, <code>sessionStorage</code>, IndexedDB, cookies, or another persistence mechanism.</p>
+  <p>The extension contains no analytics or telemetry, makes no network requests, uses no remote code or remote dependencies, and does not send page information or the On/Off preference to the developer or any third party.</p>
+  <h2>Other storage</h2>
+  <p>The extension does not use <code>localStorage</code>, <code>sessionStorage</code>, IndexedDB, page cookies, or another persistence mechanism for Amazon data.</p>
   <h2>Permissions</h2>
-  <p>The extension requests no privileged Chrome API permissions. Its site access is limited by the manifest to explicitly listed Amazon retail storefronts over HTTPS.</p>
+  <p>The extension requests exactly one Chrome API permission: <code>storage</code>, used only for the local On/Off preference. It does not request tabs, scripting, activeTab, history, downloads, cookies, webRequest, or background permissions. Its site access is limited by the manifest to explicitly listed Amazon retail storefronts over HTTPS.</p>
   <h2>Open source</h2>
   <p>The extension source code and security documentation are publicly available in the project repository, allowing users to inspect the exact behavior of each release.</p>
   <h2>Changes</h2>
