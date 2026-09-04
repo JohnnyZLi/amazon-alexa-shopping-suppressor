@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import json
 import re
+import struct
 import subprocess
 import sys
-import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "manifest.json"
 CONTENT = ROOT / "content.js"
+POPUP_HTML = ROOT / "popup.html"
+POPUP_JS = ROOT / "popup.js"
+POPUP_CSS = ROOT / "popup.css"
 
 DOMAINS = [
     "amazon.com", "amazon.ca", "amazon.com.mx", "amazon.com.br", "amazon.co.uk",
@@ -23,9 +26,10 @@ EXPECTED_MATCHES = {
     for domain in DOMAINS
     for pattern in (f"https://{domain}/*", f"https://www.{domain}/*")
 }
+EXPECTED_PERMISSIONS = ["storage"]
+EXPECTED_POPUP = "popup.html"
 
 FORBIDDEN_MANIFEST_KEYS = {
-    "permissions",
     "optional_permissions",
     "host_permissions",
     "optional_host_permissions",
@@ -40,7 +44,6 @@ FORBIDDEN_SOURCE_PATTERNS = {
     "WebSocket": r"\bWebSocket\b",
     "EventSource": r"\bEventSource\b",
     "sendBeacon": r"\bsendBeacon\b",
-    "Chrome extension API": r"\bchrome\s*\.",
     "browser extension API": r"\bbrowser\s*\.",
     "localStorage": r"\blocalStorage\b",
     "sessionStorage": r"\bsessionStorage\b",
@@ -58,14 +61,6 @@ EXPECTED_ICONS = {
     "128": "icons/icon-128.png",
 }
 
-
-def png_dimensions(path: Path) -> tuple[int, int]:
-    data = path.read_bytes()
-    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
-        fail(f"invalid PNG file: {path.relative_to(ROOT)}")
-    return struct.unpack(">II", data[16:24])
-
-
 REQUIRED_SOURCE_MARKERS = [
     "STATIC_SAFE_SELECTORS",
     "GUARDED_SELECTORS",
@@ -73,6 +68,11 @@ REQUIRED_SOURCE_MARKERS = [
     "restoreManagedElement",
     "restoreUnsafeManagedElements",
     "hasExplicitDockEvidence",
+    "STORAGE_KEY",
+    "readEnabledPreference",
+    "startPreferenceObserver",
+    "restoreDockingState",
+    "disabled by user",
 ]
 
 
@@ -81,9 +81,27 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        fail(f"invalid PNG file: {path.relative_to(ROOT)}")
+    return struct.unpack(">II", data[16:24])
+
+
+def check_javascript(path: Path) -> None:
+    try:
+        subprocess.run(["node", "--check", str(path)], check=True)
+    except FileNotFoundError:
+        fail("node is required to syntax-check JavaScript")
+    except subprocess.CalledProcessError as exc:
+        fail(f"{path.name} syntax check failed with exit code {exc.returncode}")
+
+
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    source = CONTENT.read_text(encoding="utf-8")
+    content_source = CONTENT.read_text(encoding="utf-8")
+    popup_source = POPUP_JS.read_text(encoding="utf-8")
+    combined_source = content_source + "\n" + popup_source
 
     if manifest.get("manifest_version") != 3:
         fail("manifest_version must be 3")
@@ -95,6 +113,18 @@ def main() -> None:
     present_forbidden = FORBIDDEN_MANIFEST_KEYS.intersection(manifest)
     if present_forbidden:
         fail(f"forbidden manifest keys present: {sorted(present_forbidden)}")
+
+    if manifest.get("permissions") != EXPECTED_PERMISSIONS:
+        fail(f"permissions must be exactly {EXPECTED_PERMISSIONS}")
+
+    action = manifest.get("action")
+    if not isinstance(action, dict):
+        fail("manifest action is required for the on/off popup")
+    if action.get("default_popup") != EXPECTED_POPUP:
+        fail(f"action.default_popup must be {EXPECTED_POPUP!r}")
+    unexpected_action_keys = set(action) - {"default_title", "default_popup"}
+    if unexpected_action_keys:
+        fail(f"unexpected action keys: {sorted(unexpected_action_keys)}")
 
     scripts = manifest.get("content_scripts")
     if not isinstance(scripts, list) or len(scripts) != 1:
@@ -134,17 +164,43 @@ def main() -> None:
         if (width, height) != (expected, expected):
             fail(f"{relative} must be {expected}x{expected}, got {width}x{height}")
 
+    for runtime_file in (POPUP_HTML, POPUP_JS, POPUP_CSS):
+        if not runtime_file.is_file():
+            fail(f"missing popup runtime file: {runtime_file.name}")
+
+    popup_html = POPUP_HTML.read_text(encoding="utf-8")
+    if '<script src="popup.js"></script>' not in popup_html:
+        fail("popup.html must load popup.js as an external script")
+    if '<link rel="stylesheet" href="popup.css">' not in popup_html:
+        fail("popup.html must load popup.css")
+    if re.search(r"<script(?![^>]*\bsrc=)[^>]*>", popup_html, flags=re.I):
+        fail("inline popup scripts are not allowed")
+    if re.search(r"(?:src|href)=[\"']https?://", popup_html, flags=re.I):
+        fail("popup must not load remote assets")
+
     for label, pattern in FORBIDDEN_SOURCE_PATTERNS.items():
-        if re.search(pattern, source):
+        if re.search(pattern, combined_source):
             fail(f"forbidden source capability detected: {label}")
 
+    if re.search(r"\bchrome\s*\.(?!storage\b)", combined_source):
+        fail("Chrome APIs other than chrome.storage are not allowed")
+    if re.search(r"\bchrome\.storage\.(?:sync|managed|session)\b", combined_source):
+        fail("only chrome.storage.local plus storage change events are allowed")
+
+    if "chrome.storage.local.get" not in combined_source:
+        fail("toggle must read its local enabled preference")
+    if "chrome.storage.local.set" not in popup_source:
+        fail("popup must write its local enabled preference")
+    if "chrome.storage.onChanged.addListener" not in content_source:
+        fail("content script must react to preference changes immediately")
+
     for marker in REQUIRED_SOURCE_MARKERS:
-        if marker not in source:
+        if marker not in content_source:
             fail(f"required hardening marker missing: {marker}")
 
     static_block = re.search(
         r"const STATIC_SAFE_SELECTORS = Object\.freeze\(\[(.*?)\]\);",
-        source,
+        content_source,
         flags=re.S,
     )
     if not static_block:
@@ -153,14 +209,13 @@ def main() -> None:
         if re.search(rf"['\"]{re.escape(selector)}['\"]", static_block.group(1)):
             fail(f"broad selector leaked into unconditional CSS: {selector}")
 
-    try:
-        subprocess.run(["node", "--check", str(CONTENT)], check=True)
-    except FileNotFoundError:
-        fail("node is required to syntax-check content.js")
-    except subprocess.CalledProcessError as exc:
-        fail(f"content.js syntax check failed with exit code {exc.returncode}")
+    check_javascript(CONTENT)
+    check_javascript(POPUP_JS)
 
-    print(f"PASS: Manifest v3 scope, icon assets, and content.js security checks ({version})")
+    print(
+        f"PASS: Manifest v3 scope, storage-only toggle permission, popup assets, "
+        f"icons, and JavaScript security checks ({version})"
+    )
 
 
 if __name__ == "__main__":
