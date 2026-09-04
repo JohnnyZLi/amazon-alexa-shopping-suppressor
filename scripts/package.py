@@ -4,10 +4,28 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import zipfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def local_popup_assets(popup_path: str) -> set[str]:
+    popup = ROOT / popup_path
+    if not popup.is_file():
+        raise SystemExit(f"Missing popup file: {popup_path}")
+
+    files = {popup_path}
+    html = popup.read_text(encoding="utf-8")
+    for reference in re.findall(r"(?:src|href)=[\"']([^\"']+)[\"']", html, flags=re.I):
+        parsed = urlparse(reference)
+        if parsed.scheme or parsed.netloc or reference.startswith(("#", "data:")):
+            continue
+        resolved = (Path(popup_path).parent / parsed.path).as_posix()
+        files.add(resolved)
+    return files
 
 
 def runtime_files(manifest: dict) -> list[str]:
@@ -16,6 +34,12 @@ def runtime_files(manifest: dict) -> list[str]:
         files.update(entry.get("js", []))
         files.update(entry.get("css", []))
     files.update((manifest.get("icons") or {}).values())
+
+    action = manifest.get("action") or {}
+    popup = action.get("default_popup")
+    if popup:
+        files.update(local_popup_assets(popup))
+
     return sorted(files)
 
 

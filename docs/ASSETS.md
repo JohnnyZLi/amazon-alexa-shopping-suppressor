@@ -23,4 +23,6 @@ The Chrome Web Store listing graphics are kept in a separate submission bundle r
 
 The screenshots were built from real browser captures of the original Amazon sidebar failure. Account name, delivery location, and other identifying header information were removed by cropping. The promotional artwork does not use Amazon/Alexa/Rufus logos.
 
-Before public submission, inspect each image once at full resolution to confirm that no account-specific information is visible and that the screenshots still accurately represent current Amazon behavior.
+v0.3.0 adds a user-facing toolbar popup. Before Web Store submission, capture one current real-Chrome screenshot showing the popup's **Suppressor On/Off** switch. Keep the screenshot free of account-specific Amazon information and use it to supplement, not replace, the existing before/after evidence.
+
+Before public submission, inspect every image once at full resolution to confirm that no account-specific information is visible and that the screenshots still accurately represent current Amazon behavior.

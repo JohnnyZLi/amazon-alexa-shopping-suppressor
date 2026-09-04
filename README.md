@@ -1,6 +1,6 @@
 # Amazon Alexa for Shopping Suppressor
 
-**Version:** 0.2.0  
+**Version:** 0.3.0  
 **Status:** public-release candidate / hardening  
 **Platform:** Chrome / Chromium, Manifest V3  
 **Purpose:** suppress Amazon's Alexa for Shopping / Rufus UI without leaving the large blank docked-sidebar gutter.
@@ -21,28 +21,42 @@ This extension takes a state-aware approach:
 6. **Fail open.** Broad Rufus matches are candidates only and must pass safety checks before being hidden. Structural Amazon page containers are explicitly protected.
 7. **Restore dynamic elements.** If an element previously managed by the extension later stops matching the Rufus/Alexa safety policy, the extension restores the inline style values it replaced.
 8. **Stay out of sensitive flows.** Recognized checkout and returns routes are intentionally left untouched.
+9. **Give the user an immediate off switch.** The toolbar popup stores one local `enabled` boolean. Turning the suppressor off restores managed Rufus element styles and the dock state removed by the extension; turning it back on resumes suppression without reloading the page.
 
 The extension does **not** remove Amazon DOM nodes. It suppresses UI with styling and repairs layout state so Amazon's own scripts can continue to find elements they expect.
 
+## On / off toggle
+
+Click the extension icon in the Chrome toolbar and switch **Suppressor** on or off.
+
+- **On** is the default.
+- The preference persists across Chrome restarts using `chrome.storage.local`.
+- The only stored value is a boolean named `enabled`.
+- Turning it off immediately disconnects the suppressor, removes its injected styles, restores managed inline styles, and restores Rufus dock classes/styles that the extension had removed on that page.
+- Turning it back on immediately resumes normal suppression on non-sensitive Amazon pages.
+- Checkout and recognized returns routes remain untouched regardless of the toggle state.
+
 ## Security / privacy model
 
-v0.2.0 intentionally has a small attack surface:
+v0.3.0 intentionally keeps a small capability surface:
 
 - Manifest V3
-- **No privileged Chrome API permissions** (`permissions`, `optional_permissions`, and `host_permissions` are absent)
+- Exactly one Chrome API permission: **`storage`**, used only to remember the local on/off preference
 - Content-script site access limited to explicitly listed Amazon retail hosts over HTTPS
+- One toolbar action with a local popup
 - No background/service worker
-- No popup
-- No extension storage
 - No network requests
 - No remote code or runtime dependencies
 - No analytics or telemetry
 - No cookies/history/downloads/webRequest access
-- No privileged Chrome APIs
+- No `tabs`, `scripting`, `activeTab`, or other privileged Chrome APIs
+- No `localStorage`, `sessionStorage`, IndexedDB, or page-cookie persistence
+- The only extension-persisted state is the local `enabled` boolean
 - One static content script running at `document_start` in the isolated world
 - No wildcard access to arbitrary Amazon subdomains
 - Broad selectors require fail-open JavaScript validation
 - Inline changes made by guarded suppression are tracked and reversible
+- User-triggered disable also restores dock classes/styles removed by the extension
 - Generic numeric dock padding is changed only with explicit Rufus dock evidence
 - Recognized checkout and returns routes are intentionally inactive
 
@@ -50,7 +64,7 @@ See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and [SUPPORT.md](SUPPO
 
 ## Supported Amazon storefronts
 
-v0.2.0 is scoped to 23 retail domains: United States, Canada, Mexico, Brazil, United Kingdom, Germany, France, Italy, Spain, Netherlands, Belgium, Sweden, Poland, Ireland, Turkey, United Arab Emirates, Saudi Arabia, Egypt, South Africa, Japan, India, Singapore, and Australia.
+v0.3.0 is scoped to 23 retail domains: United States, Canada, Mexico, Brazil, United Kingdom, Germany, France, Italy, Spain, Netherlands, Belgium, Sweden, Poland, Ireland, Turkey, United Arab Emirates, Saudi Arabia, Egypt, South Africa, Japan, India, Singapore, and Australia.
 
 Each marketplace is limited to its bare retail hostname and `www` hostname over HTTPS. International domains are supported by scope, but are **not yet claimed to be functionally validated on every marketplace**.
 
@@ -64,14 +78,15 @@ The safeguard favors false negatives over modifying transaction-sensitive pages.
 
 ## Install locally in Chrome
 
-1. Clone or download the repository.
+1. Clone or download the repository, or extract the exact candidate/release ZIP.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Click **Load unpacked**.
-5. Select the repository folder containing `manifest.json`.
+5. Select the folder containing `manifest.json`.
 6. Disable/remove any other Alexa/Rufus suppressor so two extensions are not fighting each other.
 7. Remove experimental Alexa/Rufus custom rules previously added to uBlock Origin Lite. uBO Lite itself can remain enabled normally.
 8. Close existing Amazon tabs and open a fresh Amazon tab for testing.
+9. Click the extension toolbar icon to confirm the **Suppressor** toggle is available and defaults to **On**.
 
 ## Validation and deterministic packaging
 
@@ -91,11 +106,11 @@ python -m pip install -r requirements-dev.txt
 python scripts/browser_smoke.py
 ```
 
-`validate.py` checks the Manifest V3 capability surface, exact HTTPS Amazon host scope, JavaScript syntax, forbidden network/storage/extension API patterns, sensitive-flow safeguards, and selector-hardening invariants.
+`validate.py` checks the Manifest V3 capability surface, exact HTTPS Amazon host scope, the storage-only permission policy, popup assets, JavaScript syntax, forbidden network/persistence/API patterns, sensitive-flow safeguards, and selector-hardening invariants.
 
-`browser_smoke.py` executes the production `content.js` logic inside a real headless Chromium DOM with test-only accelerated timers. It covers soft/hard suppression, guarded candidate safety, page-shell protection, dynamic style restoration, style rewrite re-suppression, dock repair, sensitive-route inactivity, and transitions into/out of sensitive flows. It does not modify the runtime source shipped in the extension.
+`browser_smoke.py` executes the production `content.js` logic inside a real headless Chromium DOM with test-only accelerated timers. It covers soft/hard suppression, guarded candidate safety, page-shell protection, dynamic style restoration, style rewrite re-suppression, dock repair, sensitive-route inactivity, transitions into/out of sensitive flows, disabled-at-start behavior, live off/on restoration and resumption, and popup preference persistence. It does not modify the runtime source shipped in the extension.
 
-`package.py` produces a deterministic Chrome extension ZIP in `dist/` and a matching SHA-256 file. Only runtime files referenced by the manifest are included.
+`package.py` produces a deterministic Chrome extension ZIP in `dist/` and a matching SHA-256 file. It includes only the manifest-referenced runtime files plus local assets referenced by the popup.
 
 GitHub Actions runs static validation, the synthetic Chromium suite, and deterministic packaging on pushes and pull requests. Each successful CI run uploads the exact candidate ZIP + SHA-256 as an artifact. Pushing a matching `vX.Y.Z` tag repeats those gates, verifies the tag matches the manifest version, and publishes the ZIP + checksum as a GitHub Release.
 
@@ -107,9 +122,9 @@ Set `DEBUG: true` near the top of `content.js`, reload the extension, then open 
 
 Legend: ✅ confirmed · ⬜ not yet tested · ⚠️ regression · ➖ intentionally inactive
 
-v0.1.0 was user-confirmed on the original Amazon US failure case. v0.2.0 changes candidate restoration, selector guarding, dock evidence, fallback timing, and sensitive-flow behavior, so this release candidate should be revalidated before 1.0.0.
+v0.1.0 was user-confirmed on the original Amazon US failure case. v0.3.0 adds the persistent toolbar toggle on top of the v0.2.0 restoration/selector/dock/sensitive-flow hardening, so the exact candidate should be revalidated before 1.0.0.
 
-| Scenario | v0.2.0 | Expected behavior |
+| Scenario | v0.3.0 | Expected behavior |
 |---|---:|---|
 | Current Amazon US layout / normal browsing | ⬜ | Alexa/Rufus suppressed; normal page width; no blank sidebar gutter |
 | Homepage | ⬜ | No Alexa launcher/sidebar; page layout intact |
@@ -120,14 +135,17 @@ v0.1.0 was user-confirmed on the original Amazon US failure case. v0.2.0 changes
 | Your Orders | ⬜ | Orders UI intact |
 | Returns workflow | ➖ | Extension inactive on recognized return routes |
 | Account pages | ⬜ | Account UI intact |
-| Direct product URL / fresh tab | ⬜ | No startup gutter or visible Alexa flash |
-| External site → Amazon | ⬜ | No startup gutter or visible Alexa flash |
+| Direct product URL / fresh tab | ⬜ | No startup gutter or visible Rufus flash |
+| External site → Amazon | ⬜ | No startup gutter or visible Rufus flash |
 | Amazon → Amazon navigation | ⬜ | Rufus remains suppressed after navigation |
 | Browser Back / Forward | ⬜ | Layout repaired correctly; sensitive routes deactivate |
 | Window resize | ⬜ | No stale dock offset |
 | Long-lived Amazon tab | ⬜ | Rufus does not reappear; no runaway CPU/observer activity |
 | Dynamic Rufus element changes identity | ⬜ | Extension restores its prior inline changes |
 | Amazon rewrites managed element style | ⬜ | Managed style is re-applied while element remains a safe candidate |
+| Toggle Off on normal page | ⬜ | Rufus-managed styles and removed dock state are restored immediately |
+| Toggle On again | ⬜ | Suppression resumes immediately without a reload |
+| Chrome restart with toggle Off | ⬜ | Preference remains Off and Amazon is left untouched |
 
 The corresponding synthetic Chromium regressions are automated in CI, but live Amazon validation remains required before `1.0.0`. International smoke tests should include at least `amazon.co.uk`, `amazon.de`, `amazon.co.jp`, `amazon.in`, and `amazon.com.au`.
 
@@ -135,7 +153,7 @@ The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The open li
 
 ## Acceptance criteria for 1.0.0
 
-- Alexa for Shopping / Rufus never becomes meaningfully visible on supported non-sensitive pages.
+- Alexa for Shopping / Rufus never becomes meaningfully visible on supported non-sensitive pages while the suppressor is On.
 - No left/right blank gutter remains after Rufus suppression.
 - Main Amazon page content retains its normal width and position.
 - Late-injected Rufus components remain suppressed.
@@ -143,16 +161,18 @@ The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The open li
 - Product/search/cart/account layouts remain usable.
 - Checkout and recognized returns flows remain untouched.
 - No page-shell or primary content container is hidden.
-- No persistent state is written.
+- Turning the suppressor Off restores extension-managed element styles and recorded dock state on the current page.
+- The Off preference persists across Chrome restarts and leaves Amazon untouched on new pages.
+- The only persisted extension state is the local `enabled` boolean.
 - No network access or remote dependency is introduced.
-- No new Chrome permission is added without a documented reason.
+- No Chrome API permission beyond `storage` is added without a documented reason and fresh review.
 - No recurring console exceptions or obvious idle CPU loop is introduced.
 - Static validation and synthetic Chromium regression checks are green.
 - The exact release ZIP passes the live Amazon regression matrix.
 
 ## Chrome Web Store preparation
 
-Code hardening, release automation, icons, store graphics, listing copy, legal/privacy documentation, and synthetic regression automation are prepared. Remaining blockers before `1.0.0` are the live Amazon regression matrix, the first-release marketplace-scope decision, enabling/verifying a polished public privacy-policy URL, and the publisher's Chrome Web Store account/submission actions.
+Code hardening, release automation, icons, store graphics, listing copy, legal/privacy documentation, synthetic regression automation, and the user-facing on/off control are prepared. Remaining blockers before `1.0.0` are the live Amazon regression matrix, the first-release marketplace-scope decision, enabling/verifying a polished public privacy-policy URL, and the publisher's Chrome Web Store account/submission actions.
 
 - [Chrome Web Store checklist](docs/STORE_SUBMISSION.md)
 - [Store listing draft](docs/STORE_LISTING.md)
@@ -166,7 +186,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Versioning policy
 
-- `0.2.x` — public-release candidate hardening and compatibility fixes
+- `0.3.x` — public-release candidate hardening, toggle UX, and compatibility fixes
 - `1.0.0` — after required live regression testing and final Web Store submission checks
 
 Keep the previous known-good commit/release available for rollback rather than rewriting working release history.
