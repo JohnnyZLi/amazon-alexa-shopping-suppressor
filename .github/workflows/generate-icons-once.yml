@@ -1,0 +1,43 @@
+name: One-time icon generation
+
+on:
+  push:
+    branches:
+      - release/store-assets
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate deterministic icons
+        run: python scripts/generate_icons.py
+
+      - name: Validate extension
+        run: python scripts/validate.py
+
+      - name: Commit generated PNGs and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Johnny"
+          git config user.email "92900710+JohnnyZLi@users.noreply.github.com"
+          git add icons/icon-16.png icons/icon-32.png icons/icon-48.png icons/icon-128.png
+          git rm .github/workflows/generate-icons-once.yml
+          git commit -m "Add deterministic extension icon set"
+          git push origin HEAD:release/store-assets
