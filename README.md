@@ -75,18 +75,29 @@ The safeguard favors false negatives over modifying transaction-sensitive pages.
 
 ## Validation and deterministic packaging
 
-No runtime package manager or build system is required.
+The runtime extension has no package manager, build system, or third-party runtime dependency.
+
+Static validation and packaging require only Python + Node:
 
 ```bash
 python scripts/validate.py
 python scripts/package.py
 ```
 
+For the optional synthetic Chromium regression suite used by CI:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python scripts/browser_smoke.py
+```
+
 `validate.py` checks the Manifest V3 capability surface, exact HTTPS Amazon host scope, JavaScript syntax, forbidden network/storage/extension API patterns, sensitive-flow safeguards, and selector-hardening invariants.
+
+`browser_smoke.py` executes the production `content.js` logic inside a real headless Chromium DOM with test-only accelerated timers. It covers soft/hard suppression, guarded candidate safety, page-shell protection, dynamic style restoration, style rewrite re-suppression, dock repair, sensitive-route inactivity, and transitions into/out of sensitive flows. It does not modify the runtime source shipped in the extension.
 
 `package.py` produces a deterministic Chrome extension ZIP in `dist/` and a matching SHA-256 file. Only runtime files referenced by the manifest are included.
 
-GitHub Actions runs the same validation on pushes and pull requests. Pushing a matching `vX.Y.Z` tag validates the code again, creates the deterministic ZIP, verifies the tag matches the manifest version, and publishes the ZIP + checksum as a GitHub Release.
+GitHub Actions runs static validation, the synthetic Chromium suite, and deterministic packaging on pushes and pull requests. Each successful CI run uploads the exact candidate ZIP + SHA-256 as an artifact. Pushing a matching `vX.Y.Z` tag repeats those gates, verifies the tag matches the manifest version, and publishes the ZIP + checksum as a GitHub Release.
 
 ## Debugging
 
@@ -118,9 +129,9 @@ v0.1.0 was user-confirmed on the original Amazon US failure case. v0.2.0 changes
 | Dynamic Rufus element changes identity | ⬜ | Extension restores its prior inline changes |
 | Amazon rewrites managed element style | ⬜ | Managed style is re-applied while element remains a safe candidate |
 
-International smoke tests should include at least `amazon.co.uk`, `amazon.de`, `amazon.co.jp`, `amazon.in`, and `amazon.com.au` before 1.0.0.
+The corresponding synthetic Chromium regressions are automated in CI, but live Amazon validation remains required before `1.0.0`. International smoke tests should include at least `amazon.co.uk`, `amazon.de`, `amazon.co.jp`, `amazon.in`, and `amazon.com.au`.
 
-The detailed manual procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The open regression tracker is GitHub issue #2.
+The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The open live-regression tracker is GitHub issue #2.
 
 ## Acceptance criteria for 1.0.0
 
@@ -136,17 +147,18 @@ The detailed manual procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The 
 - No network access or remote dependency is introduced.
 - No new Chrome permission is added without a documented reason.
 - No recurring console exceptions or obvious idle CPU loop is introduced.
-- The exact release ZIP passes the regression matrix.
+- Static validation and synthetic Chromium regression checks are green.
+- The exact release ZIP passes the live Amazon regression matrix.
 
 ## Chrome Web Store preparation
 
-The runtime engine and release infrastructure are now in release-candidate shape. Remaining work is primarily browser regression testing, original visual assets/icons, final marketplace scope decisions, and Web Store listing/policy setup.
+Code hardening, release automation, icons, store graphics, listing copy, legal/privacy documentation, and synthetic regression automation are prepared. Remaining blockers before `1.0.0` are the live Amazon regression matrix, the first-release marketplace-scope decision, enabling/verifying a polished public privacy-policy URL, and the publisher's Chrome Web Store account/submission actions.
 
 - [Chrome Web Store checklist](docs/STORE_SUBMISSION.md)
 - [Store listing draft](docs/STORE_LISTING.md)
 - [Manual regression plan](docs/TEST_PLAN.md)
 - [Release notes template](docs/RELEASE_NOTES_TEMPLATE.md)
-- [Static privacy-policy page](docs/PRIVACY_POLICY.html)
+- [Pages-ready privacy route](docs/privacy/index.html)
 
 ## License
 
@@ -155,6 +167,6 @@ MIT. See [LICENSE](LICENSE).
 ## Versioning policy
 
 - `0.2.x` — public-release candidate hardening and compatibility fixes
-- `1.0.0` — after required regression testing and Web Store packaging/branding are complete
+- `1.0.0` — after required live regression testing and final Web Store submission checks
 
 Keep the previous known-good commit/release available for rollback rather than rewriting working release history.

@@ -19,8 +19,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install browser-test dependency
+        run: python -m pip install -r requirements-dev.txt
       - name: Validate extension
         run: python scripts/validate.py
+      - name: Run synthetic Chromium regression checks
+        run: python scripts/browser_smoke.py
       - name: Build deterministic extension package
         run: python scripts/package.py
       - name: Verify tag matches manifest version
