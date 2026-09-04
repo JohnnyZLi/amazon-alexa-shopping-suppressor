@@ -1,4 +1,3 @@
-
 (() => {
   'use strict';
 
@@ -8,7 +7,9 @@
    * - Once initialization is safely underway, collapse the UI completely.
    * - Continuously undo Rufus docking state that creates the large blank side gutter.
    * - Prefer false negatives over false positives: never hide page-shell/main-content elements.
-   * - No network requests, persistence, remote dependencies, or privileged userscript APIs.
+   * - Restore inline styles if a dynamic element stops being a Rufus/Alexa candidate.
+   * - Stay entirely inactive on sensitive checkout/returns flows.
+   * - No network requests, persistence, remote dependencies, or privileged Chrome APIs.
    */
 
   const CONFIG = Object.freeze({
@@ -16,7 +17,7 @@
     INIT_POLL_MS: 100,
     MIN_SOFT_HIDE_MS: 3000,
     MAX_SOFT_HIDE_MS: 8000,
-    FALLBACK_SCAN_MS: 2500,
+    FALLBACK_SCAN_MS: 5000,
     SCAN_DEBOUNCE_MS: 80,
     LARGE_DOCK_PADDING_PX: 200,
   });
@@ -26,51 +27,33 @@
     hard: 'aas-hard-hide-style',
   });
 
-  // Selectors safe enough for unconditional CSS suppression. These are exact,
-  // Rufus/Alexa-specific IDs/classes rather than substring or generic attribute matches.
-  // Keeping this set narrow ensures the CSS path preserves the same fail-open policy as
-  // the guarded JavaScript path below.
+  // Exact Rufus/Alexa-specific selectors safe enough for unconditional CSS suppression.
+  // Generic container-class names stay in the guarded path below.
   const STATIC_SAFE_SELECTORS = Object.freeze([
-    // Nav / launcher
     '#nav-rufus-disco',
     '.nav-rufus-disco',
     '#nav-flyout-rufus',
     '.nav-rufus-content',
     '#Rufus',
-
-    // Product-page / inline Ask widgets
     '#dpx-nice-widget-container',
     '.dpx-smidget-desktop-pill-list',
     '#dpx-rex-nice-widget-container',
     '#nile-inline-btf_feature_div',
     '#nile-inline_feature_div',
-
-    // Price-history / ingress surfaces
     '#rufus-price-ingress',
-
-    // Sidebar / conversation UI
     '.rufus-panel-container',
     '#rufus-container',
-    '.rufus-container',
     '#rufus-container-main-view',
-    '.rufus-container-main-view',
     '.rufus-conversation-container',
     '.rufus-textarea-container',
     '#rufus-sidebar',
-    '.rufus-sidebar',
     '#rufus-panel',
-    '.rufus-panel',
     '#rufus-wrapper',
-    '.rufus-wrapper',
-
-    // Known search-result suggestion surfaces
     '.rufus-pill',
     '.s-ask-rufus-mshop-suggestion-container',
     '.s-suggestion-nile-desktop-container',
   ]);
 
-  // Known selectors that are useful but broad enough to require the JavaScript
-  // safety checks before any element is hidden. These never enter unconditional CSS.
   const GUARDED_SELECTORS = Object.freeze([
     '#nav-xshop-container [href*="rufus"]',
     '.nav-a[href*="rufus"]',
@@ -80,6 +63,11 @@
     '[data-feature-name="nile-inline"]',
     '[class*="rufus-ingress"]',
     '[data-action*="show-rufus-price-ingress"]',
+    '.rufus-container',
+    '.rufus-container-main-view',
+    '.rufus-sidebar',
+    '.rufus-panel',
+    '.rufus-wrapper',
     '[id*="rufus"][id*="sidebar"]',
     '[class*="rufus"][class*="sidebar"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
     '[id*="rufus"][id*="panel"]',
@@ -88,8 +76,6 @@
     '[class*="rufus"][class*="wrapper"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
   ]);
 
-  // Used only to FIND possible candidates. Every result still goes through
-  // isSafeRufusCandidate() before any inline hiding is applied.
   const HEURISTIC_CANDIDATE_SELECTORS = Object.freeze([
     '[id*="rufus"]',
     '[class*="rufus"]',
@@ -126,6 +112,15 @@
     '--total-rufus-panel-half-width',
   ]);
 
+  const SENSITIVE_PATH_PATTERNS = Object.freeze([
+    /^\/gp\/buy(?:\/|$)/i,
+    /^\/checkout(?:\/|$)/i,
+    /^\/hz\/checkout(?:\/|$)/i,
+    /^\/spr\/returns(?:\/|$)/i,
+    /^\/hz\/returns(?:\/|$)/i,
+    /^\/gp\/your-account\/returns(?:\/|$)/i,
+  ]);
+
   const PAGE_SHELL_TAGS = new Set(['HTML', 'HEAD', 'BODY']);
   const PAGE_SHELL_IDS = new Set([
     'a-page',
@@ -144,7 +139,6 @@
     'search',
   ]);
 
-  // If a candidate contains one of these, hiding it would likely remove real content.
   const MAIN_CONTENT_SENTINEL_IDS = Object.freeze([
     'centerCol',
     'rightCol',
@@ -152,6 +146,25 @@
     'search',
     'pageContent',
   ]);
+
+  const SOFT_INLINE_STYLES = Object.freeze({
+    opacity: '0',
+    'pointer-events': 'none',
+  });
+
+  const HARD_INLINE_STYLES = Object.freeze({
+    display: 'none',
+    visibility: 'hidden',
+    opacity: '0',
+    width: '0',
+    height: '0',
+    'min-width': '0',
+    'min-height': '0',
+    'max-width': '0',
+    'max-height': '0',
+    overflow: 'hidden',
+    'pointer-events': 'none',
+  });
 
   const staticSelector = STATIC_SAFE_SELECTORS.join(',\n');
   const knownSelector = [
@@ -164,9 +177,9 @@
     ...HEURISTIC_CANDIDATE_SELECTORS,
   ].join(',');
 
+  let active = false;
   let aggressiveMode = false;
   let domContentLoaded = document.readyState !== 'loading';
-  let windowLoaded = document.readyState === 'complete';
   let bodyObserver = null;
   let domObserver = null;
   let bodyWaitObserver = null;
@@ -174,8 +187,10 @@
   let fallbackTimer = null;
   let scanTimer = null;
   let scanAnimationFrame = null;
-  const startedAt = performance.now();
-  const hiddenElements = new WeakSet();
+  let startedAt = performance.now();
+
+  const managedElements = new Set();
+  const originalInlineStyles = new WeakMap();
 
   function log(...args) {
     if (CONFIG.DEBUG) console.debug('[AlexaSuppressor]', ...args);
@@ -183,6 +198,11 @@
 
   function warn(...args) {
     if (CONFIG.DEBUG) console.warn('[AlexaSuppressor]', ...args);
+  }
+
+  function isSensitiveFlow() {
+    const path = String(location.pathname || '/');
+    return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));
   }
 
   function injectStyle(id, cssText) {
@@ -194,8 +214,14 @@
     if (parent) parent.appendChild(style);
   }
 
+  function removeInjectedStyles() {
+    for (const id of Object.values(STYLE_IDS)) {
+      const style = document.getElementById(id);
+      if (style) style.remove();
+    }
+  }
+
   function installSoftHideCSS() {
-    // Preserve display and dimensions so Amazon can initialize its own Rufus code.
     injectStyle(STYLE_IDS.soft, `
 ${staticSelector} {
   opacity: 0 !important;
@@ -241,9 +267,7 @@ body.rufus-docked-right {
   function getClassString(element) {
     try {
       if (typeof element.className === 'string') return element.className;
-      if (element.className && typeof element.className.baseVal === 'string') {
-        return element.className.baseVal;
-      }
+      if (element.className && typeof element.className.baseVal === 'string') return element.className.baseVal;
       return String(element.className || '');
     } catch {
       return '';
@@ -263,13 +287,10 @@ body.rufus-docked-right {
     const classes = getClassString(element).toLowerCase();
     const slot = String(element.getAttribute('data-csa-c-slot-id') || '').toLowerCase();
 
-    // Amazon reuses Rufus-named web components in returns/order workflows.
     if (classes.includes('rufus-web-') || classes.includes('orc-rufus-')) return true;
     if (id.includes('rufus-web-') || id.includes('orc-rufus-')) return true;
     if (id.startsWith('rufus-text') || id.startsWith('rufus-submit')) return true;
     if (slot.includes('rufus-web-') || slot.includes('rufus-input') || slot.includes('rufus-container-submit')) return true;
-
-    // These are children of the nav launcher, not layout/UI containers themselves.
     if (id === 'nav-rufus-disco-avatar' || id === 'nav-rufus-disco-text') return true;
 
     return false;
@@ -307,55 +328,102 @@ body.rufus-docked-right {
       return hasRufusIdentity(element);
     } catch (error) {
       warn('Candidate validation failed; leaving element untouched.', error);
-      return false; // Fail open.
+      return false;
+    }
+  }
+
+  function rememberOriginalInlineStyle(element, property) {
+    let originals = originalInlineStyles.get(element);
+    if (!originals) {
+      originals = new Map();
+      originalInlineStyles.set(element, originals);
+    }
+    if (originals.has(property)) return;
+    originals.set(property, {
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property),
+    });
+  }
+
+  function observeManagedElement(element) {
+    if (!domObserver || !element || !element.isConnected) return;
+    try {
+      domObserver.observe(element, {
+        attributes: true,
+        attributeFilter: ['id', 'class', 'style', 'data-feature-name', 'data-action', 'data-csa-c-slot-id'],
+      });
+    } catch {
+      // Document-level observation and fallback scans still provide coverage.
+    }
+  }
+
+  function applyManagedStyles(element, styles) {
+    let changed = false;
+    for (const [property, value] of Object.entries(styles)) {
+      rememberOriginalInlineStyle(element, property);
+      if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === 'important') continue;
+      element.style.setProperty(property, value, 'important');
+      changed = true;
+    }
+    managedElements.add(element);
+    observeManagedElement(element);
+    return changed;
+  }
+
+  function restoreManagedElement(element) {
+    const originals = originalInlineStyles.get(element);
+    if (originals) {
+      for (const [property, original] of originals.entries()) {
+        if (original.value) element.style.setProperty(property, original.value, original.priority || '');
+        else element.style.removeProperty(property);
+      }
+    }
+    originalInlineStyles.delete(element);
+    managedElements.delete(element);
+    log('Restored', element.id || getClassString(element) || element.tagName);
+  }
+
+  function restoreUnsafeManagedElements() {
+    for (const element of Array.from(managedElements)) {
+      if (!element.isConnected) {
+        managedElements.delete(element);
+        originalInlineStyles.delete(element);
+        continue;
+      }
+      if (!isSafeRufusCandidate(element)) restoreManagedElement(element);
+    }
+  }
+
+  function restoreAllManagedElements() {
+    for (const element of Array.from(managedElements)) {
+      if (element.isConnected) restoreManagedElement(element);
+      else {
+        managedElements.delete(element);
+        originalInlineStyles.delete(element);
+      }
     }
   }
 
   function softHideElement(element) {
-    if (!isSafeRufusCandidate(element)) return;
-    element.style.setProperty('opacity', '0', 'important');
-    element.style.setProperty('pointer-events', 'none', 'important');
+    if (!isSafeRufusCandidate(element)) {
+      if (managedElements.has(element)) restoreManagedElement(element);
+      return;
+    }
+    applyManagedStyles(element, SOFT_INLINE_STYLES);
   }
 
   function hardHideElement(element) {
-    if (!isSafeRufusCandidate(element)) return;
-    if (hiddenElements.has(element)) return;
-
-    element.style.setProperty('display', 'none', 'important');
-    element.style.setProperty('visibility', 'hidden', 'important');
-    element.style.setProperty('opacity', '0', 'important');
-    element.style.setProperty('width', '0', 'important');
-    element.style.setProperty('height', '0', 'important');
-    element.style.setProperty('min-width', '0', 'important');
-    element.style.setProperty('min-height', '0', 'important');
-    element.style.setProperty('max-width', '0', 'important');
-    element.style.setProperty('max-height', '0', 'important');
-    element.style.setProperty('overflow', 'hidden', 'important');
-    element.style.setProperty('pointer-events', 'none', 'important');
-    hiddenElements.add(element);
-    log('Hidden', element.id || getClassString(element) || element.tagName);
+    if (!isSafeRufusCandidate(element)) {
+      if (managedElements.has(element)) restoreManagedElement(element);
+      return;
+    }
+    if (applyManagedStyles(element, HARD_INLINE_STYLES)) log('Hidden', element.id || getClassString(element) || element.tagName);
   }
 
   function suppressElement(element) {
+    if (!active) return;
     if (aggressiveMode) hardHideElement(element);
     else softHideElement(element);
-  }
-
-  function rufusSidebarPresent() {
-    const selectors = [
-      '.rufus-panel-container',
-      '#rufus-container',
-      '.rufus-container',
-      '#rufus-sidebar',
-      '.rufus-sidebar',
-      '#rufus-panel',
-      '.rufus-panel',
-      '#nav-flyout-rufus',
-    ];
-    return selectors.some((selector) => {
-      try { return Boolean(document.querySelector(selector)); }
-      catch { return false; }
-    });
   }
 
   function isLargeDockPadding(value) {
@@ -367,14 +435,13 @@ body.rufus-docked-right {
   }
 
   function repairDocking() {
+    if (!active || isSensitiveFlow()) return false;
     const body = document.body;
     if (!body) return false;
 
-    // Capture evidence BEFORE removing it so padding cleanup is conservative.
     const hadDockClass = RUFUS_DOCK_CLASSES.some((name) => body.classList.contains(name));
     const hadDockProperty = RUFUS_DOCK_PROPERTIES.some((name) => Boolean(body.style.getPropertyValue(name)));
-    const hadSidebar = rufusSidebarPresent();
-    const hasDockEvidence = hadDockClass || hadDockProperty || hadSidebar;
+    const hasExplicitDockEvidence = hadDockClass || hadDockProperty;
 
     let changed = false;
 
@@ -392,7 +459,7 @@ body.rufus-docked-right {
       }
     }
 
-    if (hasDockEvidence) {
+    if (hasExplicitDockEvidence) {
       const left = body.style.getPropertyValue('padding-left');
       const right = body.style.getPropertyValue('padding-right');
       const top = body.style.getPropertyValue('padding-top');
@@ -405,7 +472,6 @@ body.rufus-docked-right {
         body.style.removeProperty('padding-right');
         changed = true;
       }
-      // Top padding is only removed when an explicit dock class was present.
       if (hadDockClass && isLargeDockPadding(top)) {
         body.style.removeProperty('padding-top');
         changed = true;
@@ -417,7 +483,9 @@ body.rufus-docked-right {
   }
 
   function scanDocument() {
+    if (!active || isSensitiveFlow()) return;
     repairDocking();
+    restoreUnsafeManagedElements();
     try {
       const elements = document.querySelectorAll(candidateSelector);
       for (const element of elements) suppressElement(element);
@@ -427,10 +495,11 @@ body.rufus-docked-right {
   }
 
   function scheduleScan() {
-    if (scanTimer || scanAnimationFrame) return;
+    if (!active || scanTimer || scanAnimationFrame) return;
 
     scanTimer = window.setTimeout(() => {
       scanTimer = null;
+      if (!active) return;
       scanAnimationFrame = requestAnimationFrame(() => {
         scanAnimationFrame = null;
         scanDocument();
@@ -439,26 +508,28 @@ body.rufus-docked-right {
   }
 
   function inspectAddedNode(node) {
-    if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
+    if (!active || !node || node.nodeType !== Node.ELEMENT_NODE) return;
     const element = /** @type {Element} */ (node);
 
-    if (isSafeRufusCandidate(element)) suppressElement(element);
+    suppressElement(element);
 
     try {
       const descendants = element.querySelectorAll(candidateSelector);
       for (const descendant of descendants) suppressElement(descendant);
     } catch {
-      // Fail open; the scheduled full scan remains a fallback.
+      // Fail open; scheduled scan remains a fallback.
     }
   }
 
   function startDOMObserver() {
+    if (!active) return;
     if (domObserver) domObserver.disconnect();
 
     const target = document.body || document.documentElement;
     if (!target) return;
 
     domObserver = new MutationObserver((mutations) => {
+      if (!active) return;
       let shouldRescan = false;
 
       for (const mutation of mutations) {
@@ -470,9 +541,14 @@ body.rufus-docked-right {
 
         if (mutation.type === 'attributes') {
           const targetElement = mutation.target;
-          if (targetElement && targetElement.nodeType === Node.ELEMENT_NODE && isSafeRufusCandidate(targetElement)) {
-            suppressElement(targetElement);
+          if (!targetElement || targetElement.nodeType !== Node.ELEMENT_NODE) continue;
+
+          if (managedElements.has(targetElement) && !isSafeRufusCandidate(targetElement)) {
+            restoreManagedElement(targetElement);
+            continue;
           }
+
+          if (managedElements.has(targetElement) || isSafeRufusCandidate(targetElement)) suppressElement(targetElement);
         }
       }
 
@@ -485,10 +561,12 @@ body.rufus-docked-right {
       attributes: true,
       attributeFilter: ['id', 'class', 'data-feature-name', 'data-action', 'data-csa-c-slot-id'],
     });
+
+    for (const element of managedElements) observeManagedElement(element);
   }
 
   function startBodyObserver() {
-    if (!document.body) return;
+    if (!active || !document.body) return;
     if (bodyObserver) bodyObserver.disconnect();
 
     bodyObserver = new MutationObserver(() => {
@@ -522,7 +600,6 @@ body.rufus-docked-right {
   }
 
   function hasInitializedSignal() {
-    // Do not hard-hide before basic document construction has started.
     if (document.readyState === 'loading' && !domContentLoaded) return false;
 
     for (const selector of INIT_SIGNAL_SELECTORS) {
@@ -536,14 +613,11 @@ body.rufus-docked-right {
       }
     }
 
-    // Do not treat normal page lifecycle as proof that Rufus is initialized.
-    // Amazon can inject Alexa late; the controller's absolute timeout handles
-    // pages with no Rufus signal without risking an early hard-hide race.
     return false;
   }
 
   function enterAggressiveMode(reason) {
-    if (aggressiveMode) return;
+    if (!active || aggressiveMode) return;
     aggressiveMode = true;
     installHardHideCSS();
     repairDocking();
@@ -555,6 +629,7 @@ body.rufus-docked-right {
     if (initPollTimer) window.clearInterval(initPollTimer);
 
     initPollTimer = window.setInterval(() => {
+      if (!active) return;
       const elapsed = performance.now() - startedAt;
       if (elapsed < CONFIG.MIN_SOFT_HIDE_MS) return;
 
@@ -576,41 +651,52 @@ body.rufus-docked-right {
   function startFallbackRepair() {
     if (fallbackTimer) window.clearInterval(fallbackTimer);
     fallbackTimer = window.setInterval(() => {
-      repairDocking();
+      if (!active) return;
+      if (isSensitiveFlow()) {
+        deactivate('sensitive flow detected');
+        return;
+      }
       scanDocument();
     }, CONFIG.FALLBACK_SCAN_MS);
   }
 
-  function onNavigationSignal(eventName) {
-    log('Navigation signal:', eventName);
-    repairDocking();
-    scheduleScan();
+  function clearScheduledWork() {
+    if (initPollTimer) window.clearInterval(initPollTimer);
+    if (fallbackTimer) window.clearInterval(fallbackTimer);
+    if (scanTimer) window.clearTimeout(scanTimer);
+    if (scanAnimationFrame) cancelAnimationFrame(scanAnimationFrame);
+    initPollTimer = null;
+    fallbackTimer = null;
+    scanTimer = null;
+    scanAnimationFrame = null;
   }
 
-  function init() {
+  function deactivate(reason) {
+    if (!active) return;
+    active = false;
+    aggressiveMode = false;
+    clearScheduledWork();
+    if (bodyObserver) bodyObserver.disconnect();
+    if (domObserver) domObserver.disconnect();
+    if (bodyWaitObserver) bodyWaitObserver.disconnect();
+    bodyObserver = null;
+    domObserver = null;
+    bodyWaitObserver = null;
+    removeInjectedStyles();
+    restoreAllManagedElements();
+    log('Inactive:', reason);
+  }
+
+  function activate(reason) {
+    if (active || isSensitiveFlow()) return;
+    active = true;
+    aggressiveMode = false;
+    startedAt = performance.now();
+    domContentLoaded = document.readyState !== 'loading';
     installSoftHideCSS();
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        domContentLoaded = true;
-        whenBodyExists(() => {
-          startBodyObserver();
-          startDOMObserver();
-          scanDocument();
-        });
-      }, { once: true });
-    }
-
-    window.addEventListener('load', () => {
-      windowLoaded = true;
-      repairDocking();
-      scheduleScan();
-    }, { once: true });
-
-    window.addEventListener('pageshow', () => onNavigationSignal('pageshow'));
-    window.addEventListener('popstate', () => onNavigationSignal('popstate'));
-
     whenBodyExists(() => {
+      if (!active) return;
       startBodyObserver();
       startDOMObserver();
       scanDocument();
@@ -618,12 +704,58 @@ body.rufus-docked-right {
 
     startInitializationController();
     startFallbackRepair();
+    log('Active:', reason);
+  }
+
+  function onNavigationSignal(eventName) {
+    if (isSensitiveFlow()) {
+      deactivate(`${eventName}: sensitive flow`);
+      return;
+    }
+    if (!active) activate(`${eventName}: safe flow`);
+    else {
+      repairDocking();
+      scheduleScan();
+    }
+  }
+
+  function boot() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        domContentLoaded = true;
+        if (active) {
+          whenBodyExists(() => {
+            if (!active) return;
+            startBodyObserver();
+            startDOMObserver();
+            scanDocument();
+          });
+        }
+      }, { once: true });
+    }
+
+    window.addEventListener('load', () => {
+      if (active) {
+        repairDocking();
+        scheduleScan();
+      }
+    }, { once: true });
+
+    window.addEventListener('pageshow', () => onNavigationSignal('pageshow'));
+    window.addEventListener('popstate', () => onNavigationSignal('popstate'));
+
+    if (isSensitiveFlow()) {
+      log('Sensitive flow detected; extension remains inactive.');
+      return;
+    }
+
+    activate('initial document');
   }
 
   try {
-    init();
+    boot();
   } catch (error) {
-    // Never let the suppressor break Amazon. Logging is intentionally gated.
-    warn('Fatal initialization error; leaving Amazon untouched where possible.', error);
+    try { deactivate('fatal initialization error'); } catch { /* best effort */ }
+    warn('Fatal initialization error; extension deactivated.', error);
   }
 })();

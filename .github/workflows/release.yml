@@ -1,0 +1,38 @@
+name: Publish GitHub release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate extension
+        run: python scripts/validate.py
+      - name: Build deterministic extension package
+        run: python scripts/package.py
+      - name: Verify tag matches manifest version
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest_version="$(python -c 'import json; print(json.load(open("manifest.json"))["version"])')"
+          if [ "${GITHUB_REF_NAME}" != "v${manifest_version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest v${manifest_version}" >&2
+            exit 1
+          fi
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/*.zip dist/*.sha256 --generate-notes --verify-tag

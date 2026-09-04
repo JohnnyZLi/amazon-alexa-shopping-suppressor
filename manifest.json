@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Amazon Alexa for Shopping Suppressor",
-  "version": "0.1.1",
-  "description": "Suppresses Amazon Alexa for Shopping/Rufus and repairs its docked layout. No privileged Chrome API permissions.",
+  "version": "0.2.0",
+  "description": "Removes Alexa for Shopping/Rufus from Amazon and repairs the blank sidebar gutter. Runs locally with no tracking.",
+  "homepage_url": "https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor",
   "content_scripts": [
     {
       "matches": [
