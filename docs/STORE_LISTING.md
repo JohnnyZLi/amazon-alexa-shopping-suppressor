@@ -8,7 +8,7 @@ Use this copy for the first public release. Keep wording aligned with the shippe
 
 ## Short description
 
-Removes Alexa for Shopping/Rufus and fixes its blank sidebar gutter. Open source, local-only, no tracking.
+Removes Alexa for Shopping/Rufus and its blank sidebar gutter. Open source, on/off control, no tracking.
 
 ## Detailed description
 
@@ -19,6 +19,8 @@ Alexa Shopping Suppressor for Amazon handles both parts of that problem:
 - suppresses known Alexa for Shopping / Rufus interface surfaces,
 - repairs Rufus-specific dock classes, layout variables, and associated page offsets,
 - watches for Amazon dynamically reinjecting the UI,
+- provides a toolbar On/Off switch and remembers that preference locally,
+- restores extension-managed Rufus styles/dock state when turned Off,
 - deliberately avoids recognized checkout and returns flows,
 - runs entirely in the browser with no analytics, telemetry, remote code, or network requests.
 
@@ -26,25 +28,31 @@ The extension uses a conservative fail-open design. Broad Rufus-like DOM matches
 
 ### Privacy
 
-The extension does not collect, transmit, sell, or share user data. It does not use analytics, extension storage, cookies, browsing-history APIs, or background network requests. Amazon page DOM information is processed locally only to identify and suppress Alexa/Rufus UI and repair related layout state.
+The extension does not collect, transmit, sell, or share personal data. Amazon page DOM information is processed locally only to identify and suppress Alexa/Rufus UI and repair related layout state. The only persisted extension state is one local boolean named `enabled`, used to remember whether the user turned the suppressor On or Off. That preference is never transmitted.
 
 ### Permissions
 
-The extension requests no privileged Chrome API permissions. Its only site access is the explicitly listed Amazon retail storefronts in the manifest, where the content script needs to read and modify page DOM to perform suppression and layout repair.
+The extension requests exactly one Chrome API permission: **Storage**. It is used only to remember the local On/Off preference. The extension does not request tabs, scripting, activeTab, history, downloads, cookies, webRequest, or background permissions.
+
+Its site access is limited to the explicitly listed Amazon retail storefronts in the manifest, where the content script needs to read and modify page DOM to perform suppression and layout repair.
 
 ### Open source
 
-Source code, privacy policy, security policy, support information, release history, and deterministic packaging tools are public in the project repository.
+Source code, privacy policy, security policy, support information, release history, automated regression tests, and deterministic packaging tools are public in the project repository.
 
 **Unofficial; not affiliated with or endorsed by Amazon. Amazon, Alexa, Rufus, and related names are trademarks of their respective owner.**
 
 ## Single-purpose statement
 
-Suppress Amazon's Alexa for Shopping/Rufus interface and repair page layout space reserved for its docked sidebar.
+Suppress Amazon's Alexa for Shopping/Rufus interface and repair page layout space reserved for its docked sidebar, with a user-controlled On/Off switch.
 
 ## Site-access justification
 
 The extension must read and modify DOM elements on supported Amazon retail pages to identify Alexa/Rufus interface surfaces, hide them, and remove Rufus-specific dock layout state. Processing is local to the browser. The extension does not transmit page contents or account data.
+
+## Storage permission justification
+
+The `storage` permission is used only for one boolean setting, `enabled`, so the toolbar On/Off preference persists across popup closes and Chrome restarts. No Amazon page data, browsing history, account data, or analytics are stored.
 
 ## Remote code declaration
 
@@ -52,7 +60,7 @@ The extension must read and modify DOM elements on supported Amazon retail pages
 
 ## Data-use disclosure
 
-**Data collected:** None.
+**Personal/user data collected:** None.
 
 **Data transmitted:** None.
 
@@ -60,7 +68,9 @@ The extension must read and modify DOM elements on supported Amazon retail pages
 
 **Analytics/telemetry:** None.
 
-**Local processing:** The content script examines DOM element identity, attributes, structure, inline layout state, and limited text presence locally to determine whether Alexa/Rufus has initialized and whether an element is safe to suppress. This information is not retained after the page/session and is not sent anywhere.
+**Local extension setting:** one boolean `enabled` preference stored with `chrome.storage.local`.
+
+**Local page processing:** The content script examines DOM element identity, attributes, structure, inline layout state, and limited text presence locally to determine whether Alexa/Rufus has initialized and whether an element is safe to suppress. Page-derived information is not persisted or sent anywhere.
 
 ## Category
 
@@ -90,8 +100,10 @@ The separate Web Store submission bundle contains:
 
 The screenshot sources are real browser captures from the original Amazon failure case. Identifying account/header information was cropped out. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos.
 
+Before final submission, add one current screenshot showing the toolbar popup with the On/Off switch so the listing matches v0.3.0.
+
 ## Promotional copy
 
 **Headline:** Remove Alexa. Keep the page.
 
-**Subhead:** Open-source sidebar suppression with no tracking.
+**Subhead:** Open-source sidebar suppression with an instant Off switch and no tracking.
