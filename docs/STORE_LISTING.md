@@ -1,14 +1,10 @@
 # Chrome Web Store listing draft
 
-This is the working listing copy for the first public release. Keep wording factual and aligned with the shipped code.
+Use this copy for the first public release. Keep wording aligned with the shipped code.
 
 ## Name
 
 **Alexa Shopping Suppressor for Amazon**
-
-Alternative if the store name needs to be shorter:
-
-**Amazon Alexa Shopping Suppressor**
 
 ## Short description
 
@@ -16,7 +12,7 @@ Removes Alexa for Shopping/Rufus and fixes its blank sidebar gutter. Open source
 
 ## Detailed description
 
-Amazon can inject its Alexa for Shopping / Rufus assistant into shopping pages as a docked sidebar, launcher, inline widget, or suggestion surface. On some layouts, simply blocking the visible panel can leave Amazon reserving space for the sidebar, which creates a large empty gutter and shifts the page.
+Amazon can inject its Alexa for Shopping / Rufus assistant into shopping pages as a docked sidebar, launcher, inline widget, or suggestion surface. On some layouts, simply blocking the visible panel can leave Amazon reserving space for the sidebar, creating a large empty gutter and shifting the page.
 
 Alexa Shopping Suppressor for Amazon handles both parts of that problem:
 
@@ -34,11 +30,11 @@ The extension does not collect, transmit, sell, or share user data. It does not 
 
 ### Permissions
 
-The extension requests no privileged Chrome API permissions. Its only site access is the set of explicitly listed Amazon retail storefronts in the manifest, where the content script needs to read and modify the page DOM to perform suppression and layout repair.
+The extension requests no privileged Chrome API permissions. Its only site access is the explicitly listed Amazon retail storefronts in the manifest, where the content script needs to read and modify page DOM to perform suppression and layout repair.
 
 ### Open source
 
-Source code, privacy policy, security policy, and release history are public in the project repository.
+Source code, privacy policy, security policy, support information, release history, and deterministic packaging tools are public in the project repository.
 
 **Unofficial; not affiliated with or endorsed by Amazon. Amazon, Alexa, Rufus, and related names are trademarks of their respective owner.**
 
@@ -66,29 +62,36 @@ The extension must read and modify DOM elements on supported Amazon retail pages
 
 **Local processing:** The content script examines DOM element identity, attributes, structure, inline layout state, and limited text presence locally to determine whether Alexa/Rufus has initialized and whether an element is safe to suppress. This information is not retained after the page/session and is not sent anywhere.
 
+## Category
+
+**Shopping**
+
 ## Support URL
 
-Use the GitHub repository or issue tracker until a dedicated support page exists.
+https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/issues
 
 ## Privacy policy URL
 
-Use a stable public rendering of `PRIVACY.md` or a GitHub Pages copy of the same policy.
+https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/blob/main/PRIVACY.md
 
-## Screenshot shot list
+## Homepage / source URL
 
-Use real browser screenshots with private/account information removed. Do not fabricate Amazon UI.
+https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor
 
-1. **Normal product page** — full-width product page with no Alexa/Rufus sidebar or blank gutter.
-2. **Search results** — full-width search page with Rufus suggestion surfaces suppressed.
-3. **Before/after explanation graphic** — only if the “before” screenshot contains no personal information and accurately represents stock Amazon behavior.
-4. **Open-source/privacy graphic** — optional promotional graphic stating “Open source · Local only · No tracking”; do not imply Amazon endorsement.
+## Store asset filenames
 
-Recommended screenshot annotation should be minimal and must not obscure the actual extension behavior.
+The separate Web Store submission bundle contains:
 
-## Promotional tile copy
+- `screenshot-1-before-after-1280x800.png`
+- `screenshot-2-full-width-1280x800.png`
+- `screenshot-3-targeted-ui-1280x800.png`
+- `promo-440x280.png`
+- `marquee-1400x560.png` (optional)
+
+The screenshot sources are real browser captures from the original Amazon failure case. Identifying account/header information was cropped out. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos.
+
+## Promotional copy
 
 **Headline:** Remove Alexa. Keep the page.
 
-**Subhead:** Open-source Amazon sidebar suppression with no tracking.
-
-Do not use Amazon, Alexa, or Rufus logos or reproduce Amazon trade dress in the artwork.
+**Subhead:** Open-source sidebar suppression with no tracking.
