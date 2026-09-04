@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alexa Shopping Suppressor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <div class="header">
+      <img src="icons/icon-48.png" alt="" width="32" height="32">
+      <div>
+        <h1>Alexa Shopping Suppressor</h1>
+        <p>Amazon Alexa/Rufus UI control</p>
+      </div>
+    </div>
+
+    <label class="toggle-row" for="enabled">
+      <span>
+        <strong>Suppressor</strong>
+        <small id="status">On</small>
+      </span>
+      <span class="switch">
+        <input id="enabled" type="checkbox" role="switch" checked>
+        <span class="slider" aria-hidden="true"></span>
+      </span>
+    </label>
+
+    <p class="note">Off restores extension-managed page styles and leaves Alexa/Rufus untouched. Your preference is stored locally in Chrome.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
