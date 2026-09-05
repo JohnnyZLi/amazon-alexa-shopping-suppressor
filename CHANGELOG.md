@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 — 2026-09-05
+
+Startup preference race fix.
+
+- Fixed a real-Chrome startup race where a saved **Off** preference could lose to an early `pageshow` event while `chrome.storage.local.get()` was still resolving, activating suppression before the preference was known.
+- Suppression activation is now gated on an explicit `preferenceLoaded` state, so a fresh Amazon page remains untouched while saved Off is being loaded.
+- Storage-change events that arrive during startup remain authoritative and cannot be overwritten by a stale initial read.
+- Added a synthetic Chromium regression that deliberately delays the storage read and fires `pageshow` before it resolves.
+
 ## 0.3.0 — 2026-09-04
 
 User control plus release-preflight automation and publication preparation.
