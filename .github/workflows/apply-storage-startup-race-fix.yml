@@ -1,0 +1,214 @@
+name: Apply storage startup race fix
+
+on:
+  push:
+    branches:
+      - fix/storage-startup-race
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply startup preference race fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Runtime: do not allow pageshow/popstate to activate suppression until
+          # the persisted storage preference has actually been resolved.
+          replace_once(
+              'content.js',
+              '  let userEnabled = true;\n  let active = false;\n',
+              '  let userEnabled = false;\n  let preferenceLoaded = false;\n  let active = false;\n',
+          )
+          replace_once(
+              'content.js',
+              """      const enabled = changes[STORAGE_KEY].newValue !== false;
+      if (enabled === userEnabled) return;
+      userEnabled = enabled;
+      if (!userEnabled) {
+""",
+              """      const enabled = changes[STORAGE_KEY].newValue !== false;
+      const changed = !preferenceLoaded || enabled !== userEnabled;
+      userEnabled = enabled;
+      preferenceLoaded = true;
+      if (!changed) return;
+      if (!userEnabled) {
+""",
+          )
+          replace_once(
+              'content.js',
+              '  function activate(reason) {\n    if (!userEnabled || active || isSensitiveFlow()) return;\n',
+              '  function activate(reason) {\n    if (!preferenceLoaded || !userEnabled || active || isSensitiveFlow()) return;\n',
+          )
+          replace_once(
+              'content.js',
+              """  function onNavigationSignal(eventName) {
+    if (!userEnabled) {
+""",
+              """  function onNavigationSignal(eventName) {
+    if (!preferenceLoaded) return;
+    if (!userEnabled) {
+""",
+          )
+          replace_once(
+              'content.js',
+              """    startPreferenceObserver();
+    userEnabled = await readEnabledPreference();
+    if (!userEnabled) {
+      log('Disabled by user; extension remains inactive.');
+      return;
+    }
+""",
+              """    startPreferenceObserver();
+    const storedEnabled = await readEnabledPreference();
+    if (!preferenceLoaded) userEnabled = storedEnabled;
+    preferenceLoaded = true;
+    if (!userEnabled) {
+      deactivate('disabled by user', true);
+      log('Disabled by user; extension remains inactive.');
+      return;
+    }
+""",
+          )
+
+          # Portable regression: deliberately delay chrome.storage.local.get(),
+          # fire pageshow before it resolves, and verify saved Off cannot race
+          # into a temporary or permanent activation.
+          replace_once(
+              'scripts/browser_smoke.py',
+              """async def new_page(
+""",
+              """async def install_delayed_fake_storage(page: Page, enabled: bool, delay_ms: int) -> None:
+    await install_fake_storage(page, enabled)
+    await page.evaluate(
+        \"\"\"
+        delay => {
+          const originalGet = chrome.storage.local.get;
+          chrome.storage.local.get = async defaults => {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return originalGet(defaults);
+          };
+        }
+        \"\"\",
+        delay_ms,
+    )
+
+
+async def new_page(
+""",
+          )
+          replace_once(
+              'scripts/browser_smoke.py',
+              """async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
+""",
+              """async def assert_delayed_startup_disabled_no_race(browser: Browser) -> None:
+    page = await browser.new_page()
+    await page.set_content(
+        '<html><head></head><body class=\"rufus-docked-left\" style=\"padding-left:320px; '
+        '--total-rufus-panel-full-width:320px\"><div id=\"candidate\" class=\"rufus-panel\" '
+        'style=\"display:flex; width:123px\">x</div></body></html>'
+    )
+    await page.evaluate(\"path => { window.__AAS_TEST_PATH__ = path; }\", \"/dp/example\")
+    await install_delayed_fake_storage(page, False, 80)
+    await page.add_script_tag(content=SOURCE)
+    await page.evaluate(\"() => window.dispatchEvent(new PageTransitionEvent('pageshow'))\")
+    await page.wait_for_timeout(140)
+    assert await computed(page, \"#candidate\", \"display\") == \"flex\"
+    assert await computed(page, \"#candidate\", \"opacity\") == \"1\"
+    assert await page.locator('style[id^=\"aas-\"]').count() == 0
+    state = await page.eval_on_selector(
+        \"body\",
+        \"element => ({cls: element.className, pad: element.style.paddingLeft, \"
+        \"prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})\",
+    )
+    assert \"rufus-docked-left\" in state[\"cls\"]
+    assert state[\"pad\"] == \"320px\"
+    assert state[\"prop\"] == \"320px\"
+    await page.close()
+
+
+async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
+""",
+          )
+          replace_once(
+              'scripts/browser_smoke.py',
+              '        ("startup disabled leaves Amazon untouched", assert_startup_disabled),\n',
+              '        ("startup disabled leaves Amazon untouched", assert_startup_disabled),\n        ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),\n',
+          )
+
+          replace_once(
+              'scripts/validate.py',
+              '    "hasExplicitDockEvidence",\n',
+              '    "hasExplicitDockEvidence",\n    "preferenceLoaded",\n',
+          )
+
+          manifest_path = Path('manifest.json')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          if manifest.get('version') != '0.3.0':
+              raise SystemExit(f"unexpected manifest version: {manifest.get('version')!r}")
+          manifest['version'] = '0.3.1'
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text(encoding='utf-8')
+          marker = '# Changelog\n\n'
+          if not text.startswith(marker):
+              raise SystemExit('unexpected CHANGELOG header')
+          entry = """## 0.3.1 — 2026-09-05
+
+Startup preference race fix.
+
+- Fixed a real-Chrome startup race where a saved **Off** preference could lose to an early `pageshow` event while `chrome.storage.local.get()` was still resolving, briefly activating suppression and leaving the page suppressed after the preference loaded.
+- Suppression activation is now gated on an explicit `preferenceLoaded` state; saved Off pages remain untouched until the preference is known.
+- Storage-change events that arrive during startup remain authoritative and cannot be overwritten by a stale initial read.
+- Added a synthetic Chromium regression that deliberately delays the storage read and fires `pageshow` before it resolves.
+
+"""
+          changelog.write_text(marker + entry + text[len(marker):], encoding='utf-8')
+
+          for doc in ('README.md', 'docs/TEST_PLAN.md'):
+              p = Path(doc)
+              t = p.read_text(encoding='utf-8')
+              if '0.3.0' not in t:
+                  raise SystemExit(f'{doc}: expected 0.3.0 reference')
+              p.write_text(t.replace('0.3.0', '0.3.1'), encoding='utf-8')
+
+          # The user-facing release checklist is version-agnostic, but explicitly
+          # note the resolved startup-persistence regression in its code section.
+          replace_once(
+              'docs/STORE_SUBMISSION.md',
+              '- [x] Persistent toolbar On/Off toggle using only `chrome.storage.local`\n',
+              '- [x] Persistent toolbar On/Off toggle using only `chrome.storage.local`\n- [x] Saved-Off startup is gated until the persisted preference resolves (no `pageshow` race)\n',
+          )
+          PY
+
+          node --check content.js
+          node --check popup.js
+          python -m py_compile scripts/browser_smoke.py scripts/validate.py scripts/package.py
+          rm .github/workflows/apply-storage-startup-race-fix.yml
+
+          git config user.name "Johnny"
+          git config user.email "92900710+JohnnyZLi@users.noreply.github.com"
+          git add content.js manifest.json scripts/browser_smoke.py scripts/validate.py CHANGELOG.md README.md docs/TEST_PLAN.md docs/STORE_SUBMISSION.md .github/workflows/apply-storage-startup-race-fix.yml
+          git commit -m "Fix saved-Off startup race"
+          git push origin HEAD:fix/storage-startup-race
