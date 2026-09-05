@@ -12,6 +12,7 @@ This document tracks the remaining work between the current release candidate an
 - [x] No telemetry, network requests, or remote code
 - [x] No tabs/scripting/activeTab/history/downloads/cookies/webRequest permissions
 - [x] Toolbar popup with persistent Suppressor On/Off switch
+- [x] Saved-Off startup waits for the persisted preference before suppression can activate
 - [x] Toggle Off restores managed element styles and recorded Rufus dock state
 - [x] Toggle On resumes suppression without a reload on non-sensitive pages
 - [x] Broad selectors routed through fail-open JavaScript validation
