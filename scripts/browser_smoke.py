@@ -90,6 +90,22 @@ async def install_fake_storage(page: Page, enabled: bool) -> None:
     )
 
 
+async def install_delayed_fake_storage(page: Page, enabled: bool, delay_ms: int) -> None:
+    await install_fake_storage(page, enabled)
+    await page.evaluate(
+        """
+        delay => {
+          const originalGet = chrome.storage.local.get;
+          chrome.storage.local.get = async defaults => {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return originalGet(defaults);
+          };
+        }
+        """,
+        delay_ms,
+    )
+
+
 async def new_page(
     browser: Browser,
     html: str,
@@ -269,6 +285,32 @@ async def assert_startup_disabled(browser: Browser) -> None:
     await page.close()
 
 
+async def assert_delayed_startup_disabled_no_race(browser: Browser) -> None:
+    page = await browser.new_page()
+    await page.set_content(
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>'
+    )
+    await page.evaluate("path => { window.__AAS_TEST_PATH__ = path; }", "/dp/example")
+    await install_delayed_fake_storage(page, False, 80)
+    await page.add_script_tag(content=SOURCE)
+    await page.evaluate("() => window.dispatchEvent(new PageTransitionEvent('pageshow'))")
+    await page.wait_for_timeout(140)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert await computed(page, "#candidate", "opacity") == "1"
+    assert await page.locator('style[id^="aas-"]').count() == 0
+    state = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in state["cls"]
+    assert state["pad"] == "320px"
+    assert state["prop"] == "320px"
+    await page.close()
+
+
 async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
     page = await new_page(
         browser,
@@ -345,6 +387,7 @@ async def run() -> None:
         ("sensitive-route inactivity", assert_sensitive_routes_inactive),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
+        ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),
         ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
         ("popup persists toggle state", assert_popup_toggle),
     ]

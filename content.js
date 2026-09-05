@@ -179,7 +179,8 @@
     ...HEURISTIC_CANDIDATE_SELECTORS,
   ].join(',');
 
-  let userEnabled = true;
+  let userEnabled = false;
+  let preferenceLoaded = false;
   let active = false;
   let aggressiveMode = false;
   let domContentLoaded = document.readyState !== 'loading';
@@ -228,8 +229,10 @@
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local' || !changes[STORAGE_KEY]) return;
       const enabled = changes[STORAGE_KEY].newValue !== false;
-      if (enabled === userEnabled) return;
+      const changed = !preferenceLoaded || enabled !== userEnabled;
       userEnabled = enabled;
+      preferenceLoaded = true;
+      if (!changed) return;
       if (!userEnabled) {
         deactivate('disabled by user', true);
         return;
@@ -766,7 +769,7 @@ body.rufus-docked-right {
   }
 
   function activate(reason) {
-    if (!userEnabled || active || isSensitiveFlow()) return;
+    if (!preferenceLoaded || !userEnabled || active || isSensitiveFlow()) return;
     active = true;
     aggressiveMode = false;
     startedAt = performance.now();
@@ -786,6 +789,7 @@ body.rufus-docked-right {
   }
 
   function onNavigationSignal(eventName) {
+    if (!preferenceLoaded) return;
     if (!userEnabled) {
       deactivate(`${eventName}: disabled by user`, true);
       return;
@@ -827,8 +831,11 @@ body.rufus-docked-right {
     window.addEventListener('popstate', () => onNavigationSignal('popstate'));
 
     startPreferenceObserver();
-    userEnabled = await readEnabledPreference();
+    const storedEnabled = await readEnabledPreference();
+    if (!preferenceLoaded) userEnabled = storedEnabled;
+    preferenceLoaded = true;
     if (!userEnabled) {
+      deactivate('disabled by user', true);
       log('Disabled by user; extension remains inactive.');
       return;
     }
