@@ -68,6 +68,7 @@ REQUIRED_SOURCE_MARKERS = [
     "restoreManagedElement",
     "restoreUnsafeManagedElements",
     "hasExplicitDockEvidence",
+    "preferenceLoaded",
     "STORAGE_KEY",
     "readEnabledPreference",
     "startPreferenceObserver",
