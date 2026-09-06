@@ -6,28 +6,36 @@
   <title>Alexa Shopping Suppressor</title>
   <link rel="stylesheet" href="popup.css">
 </head>
-<body>
-  <main>
-    <div class="header">
-      <img src="icons/icon-48.png" alt="" width="32" height="32">
-      <div>
+<body data-enabled="true">
+  <main class="popup">
+    <header class="brand">
+      <img class="brand-icon" src="icons/icon-48.png" alt="" width="36" height="36">
+      <div class="brand-copy">
         <h1>Alexa Shopping Suppressor</h1>
-        <p>Amazon Alexa/Rufus UI control</p>
+        <p>Rufus control for Amazon</p>
       </div>
-    </div>
+    </header>
 
-    <label class="toggle-row" for="enabled">
-      <span>
-        <strong>Suppressor</strong>
-        <small id="status">On</small>
-      </span>
-      <span class="switch">
-        <input id="enabled" type="checkbox" role="switch" checked>
-        <span class="slider" aria-hidden="true"></span>
-      </span>
-    </label>
+    <section class="control-card" aria-labelledby="control-title">
+      <div class="control-row">
+        <div class="control-heading">
+          <strong id="control-title">Suppressor</strong>
+          <span id="status" class="status-badge" aria-live="polite">On</span>
+        </div>
 
-    <p class="note">Off restores extension-managed page styles and leaves Alexa/Rufus untouched. Your preference is stored locally in Chrome.</p>
+        <label class="switch" for="enabled" aria-label="Turn Alexa Shopping Suppressor on or off">
+          <input id="enabled" type="checkbox" role="switch" aria-describedby="state-description" checked>
+          <span class="slider" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <p id="state-description" class="state-description">Rufus hidden · sidebar space reclaimed</p>
+    </section>
+
+    <footer class="footer">
+      <span class="privacy-dot" aria-hidden="true"></span>
+      <span>Setting stored locally · no tracking</span>
+    </footer>
   </main>
   <script src="popup.js"></script>
 </body>
