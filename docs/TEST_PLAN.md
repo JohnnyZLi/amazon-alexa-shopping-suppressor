@@ -1,4 +1,4 @@
-# v0.3.2 release-candidate test plan
+# v0.3.3 release-candidate test plan
 
 Run these checks against the exact release candidate before promoting it to `1.0.0`. Test with the extension loaded unpacked from a clean checkout or from the extracted CI candidate ZIP.
 
@@ -34,7 +34,7 @@ Automated tests reduce regression risk but do **not** replace the live Amazon ch
 1. Disable Adios Alexa or any other Alexa/Rufus suppressor.
 2. Remove experimental Alexa/Rufus uBlock cosmetic filters. uBlock Origin Lite itself can remain enabled normally.
 3. Load this extension from `chrome://extensions`.
-4. Confirm the extension version shown by Chrome is `0.3.2`.
+4. Confirm the extension version shown by Chrome is `0.3.3`.
 5. Pin the extension or open its toolbar menu and confirm a **Suppressor** On/Off switch appears.
 6. Confirm the switch initially reads **On** unless you previously saved it Off.
 7. Open a fresh Amazon tab after reloading the extension.
