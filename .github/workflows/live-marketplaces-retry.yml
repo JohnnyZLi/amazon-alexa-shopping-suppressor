@@ -1,0 +1,36 @@
+name: Focused live Amazon marketplace retry
+
+on:
+  push:
+    branches:
+      - test/live-all-marketplaces
+
+permissions:
+  contents: read
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser-test dependency
+        run: python -m pip install -r requirements-dev.txt
+      - name: Ensure Xvfb is available
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+      - name: Retry DE FR PL using alternate routes and known live product pages
+        run: xvfb-run -a python scripts/live_marketplace_retry.py
+      - name: Upload focused retry report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-marketplace-retry-${{ github.sha }}
+          path: artifacts/live-marketplaces-retry/
+          if-no-files-found: error
