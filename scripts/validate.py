@@ -75,6 +75,9 @@ REQUIRED_SOURCE_MARKERS = [
     "restoreDockingState",
     "disabled by user",
     "currententrychange",
+    "prepareDockingSnapshot",
+    "getRecordedDockSide",
+    "getCurrentDockSide",
 ]
 
 

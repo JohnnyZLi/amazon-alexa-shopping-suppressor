@@ -18,6 +18,7 @@ This document tracks the remaining work between the current release candidate an
 - [x] Broad selectors routed through fail-open JavaScript validation
 - [x] Managed inline styles are restorable if element identity changes
 - [x] Dock-padding repair requires explicit Rufus dock evidence
+- [x] Dynamic dock snapshots replace incompatible stale state while preserving compatible partial updates
 - [x] Recognized checkout/returns routes are intentionally inactive
 - [x] Sensitive-route deactivation restores recorded Rufus dock state
 - [x] Same-document pushState/replaceState route changes are observed through the Chromium Navigation API

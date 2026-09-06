@@ -414,6 +414,85 @@ async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
     await page.close()
 
 
+async def assert_dynamic_dock_snapshot_replacement(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    initial = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in initial["cls"]
+    assert initial["left"] == ""
+    assert initial["full"] == ""
+
+    await page.eval_on_selector(
+        "body",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
+    )
+    await page.wait_for_timeout(80)
+    repaired = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" not in repaired["cls"]
+    assert repaired["right"] == ""
+    assert repaired["half"] == ""
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, "
+        "right: element.style.paddingRight, full: element.style.getPropertyValue('--total-rufus-panel-full-width'), "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in restored["cls"]
+    assert "rufus-docked-left" not in restored["cls"]
+    assert restored["left"] == ""
+    assert restored["right"] == "390px"
+    assert restored["full"] == ""
+    assert restored["half"] == "390px"
+    await page.close()
+
+
+async def assert_partial_dock_update_preserves_compatible_snapshot(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    await page.eval_on_selector(
+        "body",
+        "element => element.style.setProperty('--total-rufus-panel-full-width', '350px')",
+    )
+    await page.wait_for_timeout(80)
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["left"] == "320px"
+    assert restored["full"] == "350px"
+    await page.close()
+
+
 async def assert_popup_toggle(browser: Browser) -> None:
     page = await browser.new_page()
     await page.set_content(
@@ -452,6 +531,8 @@ async def run() -> None:
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
         ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),
         ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
+        ("dynamic dock snapshot replaces stale side", assert_dynamic_dock_snapshot_replacement),
+        ("partial dock update preserves compatible snapshot", assert_partial_dock_update_preserves_compatible_snapshot),
         ("popup persists toggle state", assert_popup_toggle),
     ]
 
