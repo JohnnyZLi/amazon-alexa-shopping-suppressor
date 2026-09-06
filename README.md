@@ -1,6 +1,6 @@
 # Amazon Alexa for Shopping Suppressor
 
-**Version:** 0.3.1  
+**Version:** 0.3.2  
 **Status:** public-release candidate / hardening  
 **Platform:** Chrome / Chromium, Manifest V3  
 **Purpose:** suppress Amazon's Alexa for Shopping / Rufus UI without leaving the large blank docked-sidebar gutter.
@@ -38,7 +38,7 @@ Click the extension icon in the Chrome toolbar and switch **Suppressor** on or o
 
 ## Security / privacy model
 
-v0.3.1 intentionally keeps a small capability surface:
+v0.3.2 intentionally keeps a small capability surface:
 
 - Manifest V3
 - Exactly one Chrome API permission: **`storage`**, used only to remember the local on/off preference
@@ -64,7 +64,7 @@ See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and [SUPPORT.md](SUPPO
 
 ## Supported Amazon storefronts
 
-v0.3.1 is scoped to 23 retail domains: United States, Canada, Mexico, Brazil, United Kingdom, Germany, France, Italy, Spain, Netherlands, Belgium, Sweden, Poland, Ireland, Turkey, United Arab Emirates, Saudi Arabia, Egypt, South Africa, Japan, India, Singapore, and Australia.
+v0.3.2 is scoped to 23 retail domains: United States, Canada, Mexico, Brazil, United Kingdom, Germany, France, Italy, Spain, Netherlands, Belgium, Sweden, Poland, Ireland, Turkey, United Arab Emirates, Saudi Arabia, Egypt, South Africa, Japan, India, Singapore, and Australia.
 
 Each marketplace is limited to its bare retail hostname and `www` hostname over HTTPS. International domains are supported by scope, but are **not yet claimed to be functionally validated on every marketplace**.
 
@@ -122,9 +122,9 @@ Set `DEBUG: true` near the top of `content.js`, reload the extension, then open 
 
 Legend: ✅ confirmed · ⬜ not yet tested · ⚠️ regression · ➖ intentionally inactive
 
-v0.1.0 was user-confirmed on the original Amazon US failure case. v0.3.1 adds the persistent toolbar toggle on top of the v0.2.0 restoration/selector/dock/sensitive-flow hardening, so the exact candidate should be revalidated before 1.0.0.
+v0.1.0 was user-confirmed on the original Amazon US failure case. v0.3.2 adds the persistent toolbar toggle on top of the v0.2.0 restoration/selector/dock/sensitive-flow hardening, so the exact candidate should be revalidated before 1.0.0.
 
-| Scenario | v0.3.1 | Expected behavior |
+| Scenario | v0.3.2 | Expected behavior |
 |---|---:|---|
 | Current Amazon US layout / normal browsing | ⬜ | Alexa/Rufus suppressed; normal page width; no blank sidebar gutter |
 | Homepage | ⬜ | No Alexa launcher/sidebar; page layout intact |

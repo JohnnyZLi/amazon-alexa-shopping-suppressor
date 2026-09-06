@@ -728,7 +728,7 @@ body.rufus-docked-right {
     fallbackTimer = window.setInterval(() => {
       if (!active) return;
       if (isSensitiveFlow()) {
-        deactivate('sensitive flow detected');
+        deactivate('sensitive flow detected', true);
         return;
       }
       scanDocument();
@@ -795,7 +795,7 @@ body.rufus-docked-right {
       return;
     }
     if (isSensitiveFlow()) {
-      deactivate(`${eventName}: sensitive flow`);
+      deactivate(`${eventName}: sensitive flow`, true);
       return;
     }
     if (!active) activate(`${eventName}: safe flow`);
@@ -829,6 +829,9 @@ body.rufus-docked-right {
 
     window.addEventListener('pageshow', () => onNavigationSignal('pageshow'));
     window.addEventListener('popstate', () => onNavigationSignal('popstate'));
+    if (window.navigation && typeof window.navigation.addEventListener === 'function') {
+      window.navigation.addEventListener('currententrychange', () => onNavigationSignal('navigation'));
+    }
 
     startPreferenceObserver();
     const storedEnabled = await readEnabledPreference();
@@ -849,7 +852,7 @@ body.rufus-docked-right {
   }
 
   boot().catch((error) => {
-    try { deactivate('fatal initialization error'); } catch { /* best effort */ }
+    try { deactivate('fatal initialization error', true); } catch { /* best effort */ }
     warn('Fatal initialization error; extension deactivated.', error);
   });
 })();
