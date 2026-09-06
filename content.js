@@ -513,6 +513,12 @@ body.rufus-docked-right {
     const hadDockProperty = RUFUS_DOCK_PROPERTIES.some((name) => Boolean(body.style.getPropertyValue(name)));
     const hasExplicitDockEvidence = hadDockClass || hadDockProperty;
 
+    // Treat each newly observed explicit Rufus dock state as authoritative.
+    // Amazon can switch docking sides or width modes while suppression is active;
+    // retaining every previously removed class/style would restore contradictory
+    // stale states when the user turns the suppressor Off.
+    if (hasExplicitDockEvidence) clearDockingState();
+
     let changed = false;
 
     for (const className of RUFUS_DOCK_CLASSES) {
