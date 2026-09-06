@@ -3,10 +3,19 @@
 const STORAGE_KEY = 'enabled';
 const toggle = document.getElementById('enabled');
 const status = document.getElementById('status');
+const stateDescription = document.getElementById('state-description');
 
 function render(enabled) {
   toggle.checked = enabled;
   status.textContent = enabled ? 'On' : 'Off';
+  document.body.dataset.enabled = enabled ? 'true' : 'false';
+  delete document.body.dataset.state;
+
+  if (stateDescription) {
+    stateDescription.textContent = enabled
+      ? 'Rufus hidden · sidebar space reclaimed'
+      : 'Amazon left untouched';
+  }
 }
 
 async function initialize() {
@@ -32,5 +41,7 @@ async function initialize() {
 initialize().catch((error) => {
   toggle.disabled = true;
   status.textContent = 'Unavailable';
+  document.body.dataset.state = 'error';
+  if (stateDescription) stateDescription.textContent = 'Could not read the local setting';
   console.error('Failed to initialize suppressor preference.', error);
 });
