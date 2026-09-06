@@ -5,8 +5,8 @@
 Dynamic dock-state snapshot correction.
 
 - Fixed a real-extension edge case where Amazon switching Rufus from one docking state to another while suppression was active caused Off to restore both the old and new dock classes/styles simultaneously.
-- Each newly observed explicit Rufus dock state now replaces the previously recorded restoration snapshot instead of accumulating stale, contradictory state.
-- Added a synthetic Chromium regression that switches from a left/full-width dock to a right/half-width dock while active, then verifies Off restores only the latest right-side state.
+- Newly observed dock evidence now reconciles the restoration snapshot: incompatible side or width-mode state is replaced, while compatible partial updates preserve the rest of the last known dock state.
+- Added synthetic Chromium regressions for both a left/full-width → right/half-width side switch and a width-only update while the same left dock remains logically active.
 - Re-ran persistent-profile, multi-tab, sensitive-route, same-document navigation, style-restoration, and repeated-toggle integration tests against the actual unpacked extension.
 
 ## 0.3.2 — 2026-09-06
