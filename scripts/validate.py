@@ -74,6 +74,7 @@ REQUIRED_SOURCE_MARKERS = [
     "startPreferenceObserver",
     "restoreDockingState",
     "disabled by user",
+    "currententrychange",
 ]
 
 

@@ -19,6 +19,8 @@ This document tracks the remaining work between the current release candidate an
 - [x] Managed inline styles are restorable if element identity changes
 - [x] Dock-padding repair requires explicit Rufus dock evidence
 - [x] Recognized checkout/returns routes are intentionally inactive
+- [x] Sensitive-route deactivation restores recorded Rufus dock state
+- [x] Same-document pushState/replaceState route changes are observed through the Chromium Navigation API
 - [x] Deterministic packaging script includes popup runtime assets
 - [x] Static/security CI validation
 - [x] Synthetic Chromium regression suite
