@@ -238,12 +238,14 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
 async def assert_sensitive_transition_restore_and_resume(browser: Browser) -> None:
     page = await new_page(
         browser,
-        '<html><head></head><body><div id="candidate" class="rufus-panel" '
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
         'style="display:flex; width:123px">x</div></body></html>',
         "/dp/example",
     )
     await page.wait_for_timeout(130)
     assert await computed(page, "#candidate", "display") == "none"
+    assert "rufus-docked-left" not in await page.eval_on_selector("body", "element => element.className")
 
     await page.evaluate(
         "() => { window.__AAS_TEST_PATH__ = '/checkout/pay'; window.dispatchEvent(new PopStateEvent('popstate')); }"
@@ -252,6 +254,14 @@ async def assert_sensitive_transition_restore_and_resume(browser: Browser) -> No
     assert await computed(page, "#candidate", "display") == "flex"
     assert (await computed(page, "#candidate", "width")).startswith("123")
     assert await page.locator('style[id^="aas-"]').count() == 0
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["pad"] == "320px"
+    assert restored["prop"] == "320px"
 
     await page.evaluate(
         "() => { window.__AAS_TEST_PATH__ = '/dp/example'; window.dispatchEvent(new PopStateEvent('popstate')); }"
@@ -259,6 +269,58 @@ async def assert_sensitive_transition_restore_and_resume(browser: Browser) -> No
     await page.wait_for_timeout(130)
     assert await computed(page, "#candidate", "display") == "none"
     assert await page.locator('style[id^="aas-"]').count() >= 1
+    repaired = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in repaired["cls"]
+    assert repaired["pad"] == ""
+    assert repaired["prop"] == ""
+    await page.close()
+
+
+async def assert_navigation_api_sensitive_transition(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert await page.evaluate("() => Boolean(window.navigation && window.navigation.dispatchEvent)")
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/checkout/pay'; "
+        "window.navigation.dispatchEvent(new Event('currententrychange')); }"
+    )
+    await page.wait_for_timeout(40)
+    assert await computed(page, "#candidate", "display") == "flex"
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["pad"] == "320px"
+    assert restored["prop"] == "320px"
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/dp/example'; "
+        "window.navigation.dispatchEvent(new Event('currententrychange')); }"
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    repaired = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in repaired["cls"]
+    assert repaired["pad"] == ""
+    assert repaired["prop"] == ""
     await page.close()
 
 
@@ -386,6 +448,7 @@ async def run() -> None:
         ("unrelated body padding preservation", assert_unrelated_padding_preserved),
         ("sensitive-route inactivity", assert_sensitive_routes_inactive),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
+        ("Navigation API same-document sensitive transition", assert_navigation_api_sensitive_transition),
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
         ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),
         ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),

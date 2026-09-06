@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 — 2026-09-06
+
+Sensitive-flow restoration and same-document navigation hardening.
+
+- Restores recorded Rufus dock classes, width variables, and associated body padding when a running suppressor transitions into checkout or returns instead of leaving layout changes behind.
+- Restores dock state on fatal deactivation as part of the fail-open path.
+- Watches Chromium's Navigation API `currententrychange` event so `history.pushState()` / `replaceState()` transitions into sensitive routes deactivate immediately and transitions back to normal Amazon pages resume suppression without a reload.
+- Strengthened synthetic Chromium coverage to assert dock restoration/resuppression across both `popstate` and Navigation API same-document transitions.
+- Independently exercised all 46 exact bare/www Amazon HTTPS host patterns with the real unpacked extension; unlisted hosts remained untouched.
+
 ## 0.3.1 — 2026-09-05
 
 Startup preference race fix.
