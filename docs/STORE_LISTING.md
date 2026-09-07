@@ -100,11 +100,11 @@ The separate Web Store submission bundle contains:
 - `screenshot-1-before-after-1280x800.png`
 - `screenshot-2-full-width-1280x800.png`
 - `screenshot-3-targeted-ui-1280x800.png`
-- final current-popup screenshot at 1280x800 or 640x400
+- `screenshot-4-popup-control-1280x800.png`
 - `promo-440x280.png`
 - `marquee-1400x560.png` (optional)
 
-The screenshot sources are real browser captures from the original Amazon failure case. Identifying account/header information was cropped out. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos. Current popup evidence is captured from the real unpacked extension in Chromium in light, dark, and Off states.
+The first three screenshot sources are real browser captures from the original Amazon failure case with identifying account/header information cropped out. `screenshot-4-popup-control-1280x800.png` incorporates a current real-Chromium capture of the redesigned popup over sanitized Amazon page evidence. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos.
 
 ## Promotional copy
 
