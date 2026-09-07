@@ -6,6 +6,7 @@ import re
 import struct
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +61,7 @@ EXPECTED_ICONS = {
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png",
 }
+STORE_ICON_ARTWORK_BOUNDS = (16, 16, 112, 112)
 
 REQUIRED_SOURCE_MARKERS = [
     "STATIC_SAFE_SELECTORS",
@@ -88,6 +90,97 @@ def png_dimensions(path: Path) -> tuple[int, int]:
     if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
         fail(f"invalid PNG file: {path.relative_to(ROOT)}")
     return struct.unpack(">II", data[16:24])
+
+
+def paeth(a: int, b: int, c: int) -> int:
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        return a
+    if pb <= pc:
+        return b
+    return c
+
+
+def png_rgba_alpha_bounds(path: Path) -> tuple[int, int, int, int] | None:
+    """Return the non-transparent RGBA8 bounding box using only stdlib PNG decoding."""
+    data = path.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        fail(f"invalid PNG signature: {path.relative_to(ROOT)}")
+
+    pos = 8
+    width = height = None
+    bit_depth = color_type = interlace = None
+    idat = bytearray()
+    while pos + 12 <= len(data):
+        length = struct.unpack(">I", data[pos:pos + 4])[0]
+        kind = data[pos + 4:pos + 8]
+        payload = data[pos + 8:pos + 8 + length]
+        pos += 12 + length
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _compression, _filter, interlace = struct.unpack(
+                ">IIBBBBB", payload
+            )
+        elif kind == b"IDAT":
+            idat.extend(payload)
+        elif kind == b"IEND":
+            break
+
+    if width is None or height is None:
+        fail(f"missing PNG IHDR: {path.relative_to(ROOT)}")
+    if (bit_depth, color_type, interlace) != (8, 6, 0):
+        fail(
+            f"{path.relative_to(ROOT)} must be non-interlaced RGBA8 for deterministic validation; "
+            f"got bit_depth={bit_depth}, color_type={color_type}, interlace={interlace}"
+        )
+
+    raw = zlib.decompress(bytes(idat))
+    bpp = 4
+    stride = width * bpp
+    expected = height * (stride + 1)
+    if len(raw) != expected:
+        fail(f"unexpected PNG scanline length: {path.relative_to(ROOT)}")
+
+    previous = bytearray(stride)
+    rows: list[bytearray] = []
+    offset = 0
+    for _y in range(height):
+        filter_type = raw[offset]
+        encoded = raw[offset + 1:offset + 1 + stride]
+        offset += stride + 1
+        row = bytearray(stride)
+        for i, value in enumerate(encoded):
+            left = row[i - bpp] if i >= bpp else 0
+            up = previous[i]
+            upper_left = previous[i - bpp] if i >= bpp else 0
+            if filter_type == 0:
+                recon = value
+            elif filter_type == 1:
+                recon = value + left
+            elif filter_type == 2:
+                recon = value + up
+            elif filter_type == 3:
+                recon = value + ((left + up) // 2)
+            elif filter_type == 4:
+                recon = value + paeth(left, up, upper_left)
+            else:
+                fail(f"unsupported PNG filter {filter_type}: {path.relative_to(ROOT)}")
+            row[i] = recon & 0xFF
+        rows.append(row)
+        previous = row
+
+    xs: list[int] = []
+    ys: list[int] = []
+    for y, row in enumerate(rows):
+        for x in range(width):
+            if row[x * 4 + 3] != 0:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return None
+    return min(xs), min(ys), max(xs) + 1, max(ys) + 1
 
 
 def check_javascript(path: Path) -> None:
@@ -166,6 +259,13 @@ def main() -> None:
         if (width, height) != (expected, expected):
             fail(f"{relative} must be {expected}x{expected}, got {width}x{height}")
 
+    store_icon_bounds = png_rgba_alpha_bounds(ROOT / EXPECTED_ICONS["128"])
+    if store_icon_bounds != STORE_ICON_ARTWORK_BOUNDS:
+        fail(
+            "128px store icon must keep 16px transparent padding around a 96px artwork box; "
+            f"got alpha bounds {store_icon_bounds}"
+        )
+
     for runtime_file in (POPUP_HTML, POPUP_JS, POPUP_CSS):
         if not runtime_file.is_file():
             fail(f"missing popup runtime file: {runtime_file.name}")
@@ -216,7 +316,7 @@ def main() -> None:
 
     print(
         f"PASS: Manifest v3 scope, storage-only toggle permission, popup assets, "
-        f"icons, and JavaScript security checks ({version})"
+        f"icons/store padding, and JavaScript security checks ({version})"
     )
 
 
