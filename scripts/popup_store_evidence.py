@@ -77,33 +77,43 @@ async def main() -> int:
             page = await context.new_page()
             await page.goto(f"chrome-extension://{extension_id}/popup.html", wait_until="domcontentloaded", timeout=15000)
             await page.wait_for_selector("#enabled", timeout=10000)
+            await page.wait_for_selector(".control-card", timeout=10000)
 
             evidence = {"extension_id": extension_id, "light": {}, "dark": {}}
             for scheme in ("light", "dark"):
                 await page.emulate_media(color_scheme=scheme)
                 await page.wait_for_timeout(250)
                 state = await page.evaluate("""
-                () => ({
-                  checked: document.querySelector('#enabled').checked,
-                  status: document.querySelector('#status').textContent.trim(),
-                  bodyBackground: getComputedStyle(document.body).backgroundColor,
-                  bodyColor: getComputedStyle(document.body).color,
-                  cardBackground: getComputedStyle(document.querySelector('.toggle-row')).backgroundColor,
-                  width: document.documentElement.scrollWidth,
-                  height: document.documentElement.scrollHeight,
-                })
+                () => {
+                  const toggle = document.querySelector('#enabled');
+                  const status = document.querySelector('#status');
+                  const card = document.querySelector('.control-card');
+                  const detail = document.querySelector('#state-description');
+                  return {
+                    checked: toggle.checked,
+                    status: status.textContent.trim(),
+                    detail: detail?.textContent?.trim() || '',
+                    bodyBackground: getComputedStyle(document.body).backgroundColor,
+                    bodyColor: getComputedStyle(document.body).color,
+                    cardBackground: getComputedStyle(card).backgroundColor,
+                    width: document.documentElement.scrollWidth,
+                    height: document.documentElement.scrollHeight,
+                  };
+                }
                 """)
                 evidence[scheme] = state
                 await page.screenshot(path=str(OUT / f"popup-{scheme}.png"), full_page=True)
 
-            # Also capture the Off state in light mode to document the inverse state copy.
+            # Also capture the Off state in light mode to document inverse copy and state.
             await page.emulate_media(color_scheme="light")
             await page.click("#enabled")
             await page.wait_for_timeout(450)
             off_state = await page.evaluate("""
-            () => ({checked: document.querySelector('#enabled').checked,
-                    status: document.querySelector('#status').textContent.trim(),
-                    detail: document.querySelector('#state-detail')?.textContent?.trim() || ''})
+            () => ({
+              checked: document.querySelector('#enabled').checked,
+              status: document.querySelector('#status').textContent.trim(),
+              detail: document.querySelector('#state-description')?.textContent?.trim() || ''
+            })
             """)
             evidence["off"] = off_state
             await page.screenshot(path=str(OUT / "popup-off-light.png"), full_page=True)
@@ -115,8 +125,10 @@ async def main() -> int:
                 and evidence["dark"]["checked"] is True
                 and evidence["dark"]["status"] == "On"
                 and evidence["light"]["bodyBackground"] != evidence["dark"]["bodyBackground"]
+                and evidence["light"]["cardBackground"] != evidence["dark"]["cardBackground"]
                 and off_state["checked"] is False
                 and off_state["status"] == "Off"
+                and "untouched" in off_state["detail"].lower()
             )
             print(json.dumps(evidence, indent=2))
             return 0 if ok else 1
