@@ -1,0 +1,34 @@
+name: Popup store evidence
+
+on:
+  push:
+    branches:
+      - test/popup-store-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser dependency
+        run: |
+          pip install -r requirements-dev.txt
+          sudo apt-get update
+          sudo apt-get install -y chromium xvfb
+      - name: Capture popup evidence
+        run: xvfb-run -a python scripts/popup_store_evidence.py
+      - name: Upload popup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: popup-store-evidence-${{ github.sha }}
+          path: artifacts/popup-store-evidence/
+          if-no-files-found: error
