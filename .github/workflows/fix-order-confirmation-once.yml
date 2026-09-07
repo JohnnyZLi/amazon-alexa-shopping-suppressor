@@ -1,0 +1,162 @@
+name: One-time order confirmation fix
+
+on:
+  push:
+    branches:
+      - release/1.0.0-prep
+    paths:
+      - '.github/workflows/fix-order-confirmation-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/1.0.0-prep
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch confirmation-page routing and tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+
+          content_path = root / 'content.js'
+          source = content_path.read_text(encoding='utf-8')
+          old = """  const SENSITIVE_PATH_PATTERNS = Object.freeze([\n    /^\\/gp\\/buy(?:\\/|$)/i,\n    /^\\/checkout(?:\\/|$)/i,\n    /^\\/hz\\/checkout(?:\\/|$)/i,\n    /^\\/spr\\/returns(?:\\/|$)/i,\n    /^\\/hz\\/returns(?:\\/|$)/i,\n    /^\\/gp\\/your-account\\/returns(?:\\/|$)/i,\n  ]);\n"""
+          new = """  // Post-purchase confirmation pages are no longer transaction-sensitive.\n  // They may still host Rufus and can retain the same dock gutter as normal shopping pages.\n  const POST_PURCHASE_SAFE_PATH_PATTERNS = Object.freeze([\n    /^\\/gp\\/buy\\/thankyou(?:\\/|$)/i,\n    /^\\/checkout\\/thankyou(?:\\/|$)/i,\n    /^\\/hz\\/checkout\\/thankyou(?:\\/|$)/i,\n    /^\\/checkout\\/order-confirmation(?:\\/|$)/i,\n    /^\\/hz\\/checkout\\/order-confirmation(?:\\/|$)/i,\n  ]);\n\n  const SENSITIVE_PATH_PATTERNS = Object.freeze([\n    /^\\/gp\\/buy(?:\\/|$)/i,\n    /^\\/checkout(?:\\/|$)/i,\n    /^\\/hz\\/checkout(?:\\/|$)/i,\n    /^\\/spr\\/returns(?:\\/|$)/i,\n    /^\\/hz\\/returns(?:\\/|$)/i,\n    /^\\/gp\\/your-account\\/returns(?:\\/|$)/i,\n  ]);\n"""
+          if old not in source:
+              raise SystemExit('content.js sensitive-path block did not match expected source')
+          source = source.replace(old, new, 1)
+
+          old_fn = """  function isSensitiveFlow() {\n    const path = String(location.pathname || '/');\n    return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));\n  }\n"""
+          new_fn = """  function isSensitiveFlow() {\n    const path = String(location.pathname || '/');\n    if (POST_PURCHASE_SAFE_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;\n    return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));\n  }\n"""
+          if old_fn not in source:
+              raise SystemExit('content.js isSensitiveFlow function did not match expected source')
+          source = source.replace(old_fn, new_fn, 1)
+          content_path.write_text(source, encoding='utf-8')
+
+          test_path = root / 'scripts' / 'browser_smoke.py'
+          tests = test_path.read_text(encoding='utf-8')
+          anchor = "\n\nasync def assert_sensitive_transition_restore_and_resume(browser: Browser) -> None:\n"
+          if anchor not in tests:
+              raise SystemExit('browser_smoke insertion anchor missing')
+          addition = r'''
+
+async def assert_post_purchase_confirmation_active(browser: Browser) -> None:
+    confirmation_paths = [
+        "/gp/buy/thankyou/handlers/display.html",
+        "/checkout/thankyou",
+        "/hz/checkout/thankyou",
+        "/checkout/order-confirmation",
+        "/hz/checkout/order-confirmation",
+    ]
+    for path in confirmation_paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+            '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+            'style="display:flex; width:123px">x</div></body></html>',
+            path,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#candidate", "display") == "none", path
+        state = await page.eval_on_selector(
+            "body",
+            "element => ({cls: element.className, pad: element.style.paddingLeft, "
+            "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        )
+        assert "rufus-docked-left" not in state["cls"], path
+        assert state["pad"] == "", path
+        assert state["prop"] == "", path
+        await page.close()
+
+    # Regression for the real failure: checkout is untouched, but the post-purchase
+    # thank-you page resumes suppression and gutter repair in the same document.
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/checkout/pay",
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert await page.locator('style[id^="aas-"]').count() == 0
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/gp/buy/thankyou/handlers/display.html'; "
+        "window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    resumed = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in resumed["cls"]
+    assert resumed["pad"] == ""
+    assert resumed["prop"] == ""
+    await page.close()
+'''
+          tests = tests.replace(anchor, addition + anchor, 1)
+          check_anchor = '        ("sensitive-route inactivity", assert_sensitive_routes_inactive),\n'
+          if check_anchor not in tests:
+              raise SystemExit('browser_smoke check-list anchor missing')
+          tests = tests.replace(
+              check_anchor,
+              check_anchor + '        ("post-purchase confirmation resumes suppression", assert_post_purchase_confirmation_active),\n',
+              1,
+          )
+          test_path.write_text(tests, encoding='utf-8')
+
+          validate_path = root / 'scripts' / 'validate.py'
+          validate = validate_path.read_text(encoding='utf-8')
+          marker = '    "SENSITIVE_PATH_PATTERNS",\n'
+          if marker not in validate:
+              raise SystemExit('validate.py source-marker anchor missing')
+          validate = validate.replace(marker, marker + '    "POST_PURCHASE_SAFE_PATH_PATTERNS",\n', 1)
+          validate_path.write_text(validate, encoding='utf-8')
+
+          changelog_path = root / 'CHANGELOG.md'
+          changelog = changelog_path.read_text(encoding='utf-8')
+          changelog_anchor = '- Includes sensitive checkout/returns fail-open behavior and restoration across same-document navigation.\n'
+          if changelog_anchor not in changelog:
+              raise SystemExit('CHANGELOG insertion anchor missing')
+          changelog = changelog.replace(
+              changelog_anchor,
+              changelog_anchor + '- Fixes the post-purchase order-confirmation regression: known thank-you/order-confirmation routes resume Rufus suppression and dock-gutter repair after payment while active checkout remains untouched.\n',
+              1,
+          )
+          changelog_path.write_text(changelog, encoding='utf-8')
+
+          readme_path = root / 'README.md'
+          readme = readme_path.read_text(encoding='utf-8')
+          readme_anchor = 'The safeguard favors false negatives over modifying transaction-sensitive pages.\n'
+          if readme_anchor not in readme:
+              raise SystemExit('README insertion anchor missing')
+          readme = readme.replace(
+              readme_anchor,
+              readme_anchor + '\nPost-purchase thank-you/order-confirmation routes are explicitly treated as non-sensitive so Rufus suppression and dock-gutter repair resume after an order is already placed.\n',
+              1,
+          )
+          readme_path.write_text(readme, encoding='utf-8')
+          PY
+
+      - name: Remove one-time workflow and commit fix
+        shell: bash
+        run: |
+          rm .github/workflows/fix-order-confirmation-once.yml
+          git config user.name "Johnny"
+          git config user.email "92900710+JohnnyZLi@users.noreply.github.com"
+          git add content.js scripts/browser_smoke.py scripts/validate.py CHANGELOG.md README.md .github/workflows/fix-order-confirmation-once.yml
+          git commit -m "Fix Rufus suppression on order confirmation"
+          git push origin HEAD:release/1.0.0-prep
