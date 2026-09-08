@@ -67,6 +67,7 @@ REQUIRED_SOURCE_MARKERS = [
     "STATIC_SAFE_SELECTORS",
     "GUARDED_SELECTORS",
     "SENSITIVE_PATH_PATTERNS",
+    "POST_PURCHASE_SAFE_PATH_PATTERNS",
     "restoreManagedElement",
     "restoreUnsafeManagedElements",
     "hasExplicitDockEvidence",

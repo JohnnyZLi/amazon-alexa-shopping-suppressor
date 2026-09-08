@@ -79,6 +79,8 @@ If a browser navigation signal reaches one of these paths in the same document, 
 
 The safeguard favors false negatives over modifying transaction-sensitive pages.
 
+Post-purchase thank-you/order-confirmation routes are explicitly treated as non-sensitive so Rufus suppression and dock-gutter repair resume after an order is already placed.
+
 ## Install locally in Chrome
 
 1. Clone or download the repository, or extract the exact candidate/release ZIP.
