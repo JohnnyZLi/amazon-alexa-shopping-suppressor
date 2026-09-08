@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Amazon Alexa for Shopping Suppressor does not collect, transmit, sell, or share personal data.
+Alexa Shopping Suppressor for Amazon does not collect, transmit, sell, or share personal data.
 
 The extension runs locally in the browser on explicitly supported Amazon retail storefronts. It reads limited page DOM information only to identify Alexa for Shopping / Rufus interface elements, determine when that interface has initialized, hide those elements, and repair Rufus-specific dock layout state.
 
@@ -16,7 +16,7 @@ The extension:
 - does not send page contents, DOM data, or the toggle preference anywhere;
 - does not load remote code or remote dependencies.
 
-The extension is intentionally inactive on recognized Amazon checkout and returns routes.
+The extension is intentionally inactive on recognized Amazon checkout and returns routes. Known post-purchase thank-you/order-confirmation routes are treated as non-sensitive so normal Alexa/Rufus suppression and dock-gutter repair can resume after a transaction has completed.
 
 No personal data is collected or retained. The local `enabled` preference remains in Chrome's extension storage until the user changes it, clears the extension's data, or removes the extension.
 
