@@ -11,6 +11,8 @@ on:
 permissions:
   contents: read
 
+# This temporary acceptance workflow intentionally loads the deterministic ZIP,
+# not the repository working tree, so the final packaged bytes are exercised.
 jobs:
   fresh-install:
     runs-on: ubuntu-latest
@@ -88,9 +90,17 @@ jobs:
                           checked = await popup.is_checked('#enabled')
                           status = (await popup.locator('#status').text_content() or '').strip()
                           stored = await popup.evaluate("() => chrome.storage.local.get({ enabled: true })")
-                          version = await popup.evaluate('() => chrome.runtime.getManifest().version')
-                          print(json.dumps({'checked': checked, 'status': status, 'stored': stored, 'version': version}, sort_keys=True))
-                          assert version == '1.0.0', f'Unexpected packaged version {version!r}'
+                          manifest = await popup.evaluate('() => chrome.runtime.getManifest()')
+                          result = {
+                              'checked': checked,
+                              'status': status,
+                              'stored': stored,
+                              'version': manifest.get('version'),
+                              'name': manifest.get('name'),
+                          }
+                          print(json.dumps(result, sort_keys=True))
+                          assert result['version'] == '1.0.0', f"Unexpected packaged version {result['version']!r}"
+                          assert result['name'] == 'Alexa Shopping Suppressor for Amazon', f"Unexpected packaged name {result['name']!r}"
                           assert checked is True, 'Fresh install toggle was not On'
                           assert status == 'On', f'Fresh install status was {status!r}'
                           assert stored.get('enabled') is True, f'Fresh install storage/default resolved to {stored!r}'
