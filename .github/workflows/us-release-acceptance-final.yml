@@ -24,6 +24,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
           which google-chrome || which google-chrome-stable || true
+      - name: Align acceptance probe with current popup markup
+        run: sed -i "s/\\.toggle-row/\\.control-card/" scripts/us_release_acceptance.py
       - name: Run deep live Amazon US acceptance
         env:
           AAS_LONG_MINUTES: '2'
