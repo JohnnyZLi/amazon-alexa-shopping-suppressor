@@ -8,6 +8,12 @@ OUT = ROOT / "icons"
 SIZES = (16, 32, 48, 128)
 SS = 6
 
+# Chrome Web Store guidance for a square 128 px extension icon calls for
+# 16 px of transparent padding on every side around a 96 px artwork box.
+STORE_ICON_SIZE = 128
+STORE_ARTWORK_SIZE = 96
+
+
 def rounded_rect_inside(x, y, n, inset, radius):
     left = top = inset
     right = bottom = n - inset
@@ -19,6 +25,7 @@ def rounded_rect_inside(x, y, n, inset, radius):
     cy = top + radius if y < top + radius else bottom - radius
     return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2
 
+
 def seg_dist(px, py, ax, ay, bx, by):
     vx, vy = bx - ax, by - ay
     wx, wy = px - ax, py - ay
@@ -27,36 +34,51 @@ def seg_dist(px, py, ax, ay, bx, by):
     qx, qy = ax + t*vx, ay + t*vy
     return math.hypot(px-qx, py-qy)
 
+
 def point_in_tri(px, py, a, b, c):
     def s(p1,p2,p3):
-        return (p1[0]-p3[0])*(p2[1]-p3[1])-(p2[0]-p3[0])*(p1[1]-p3[1])
+        return (p1[0]-p3[0])*(p2[1]-p3[1])-(p1[1]-p3[1])*(p2[0]-p3[0])
     p=(px,py)
     d1,d2,d3=s(p,a,b),s(p,b,c),s(p,c,a)
     neg=(d1<0) or (d2<0) or (d3<0)
     pos=(d1>0) or (d2>0) or (d3>0)
     return not (neg and pos)
 
+
 def render(size):
     n=size*SS
     buf=[(0,0,0,0)]*(n*n)
-    inset=0.025*n
-    radius=0.18*n
 
-    cx, cy = 0.49*n, 0.43*n
-    rx, ry = 0.29*n, 0.225*n
-    ring=0.043*n
-    tail=((0.33*n,0.57*n),(0.25*n,0.69*n),(0.40*n,0.61*n))
-    inner_tail=((0.335*n,0.56*n),(0.292*n,0.635*n),(0.385*n,0.595*n))
-    ax,ay,bx,by=0.27*n,0.25*n,0.76*n,0.76*n
-    slash_r=0.052*n
+    if size == STORE_ICON_SIZE:
+        artwork = STORE_ARTWORK_SIZE * SS
+        offset = ((STORE_ICON_SIZE - STORE_ARTWORK_SIZE) // 2) * SS
+        inset = 0.0
+    else:
+        artwork = n
+        offset = 0.0
+        inset = 0.025*artwork
+
+    radius=0.18*artwork
+
+    cx, cy = offset + 0.49*artwork, offset + 0.43*artwork
+    rx, ry = 0.29*artwork, 0.225*artwork
+    ring=0.043*artwork
+    tail=((offset+0.33*artwork,offset+0.57*artwork),(offset+0.25*artwork,offset+0.69*artwork),(offset+0.40*artwork,offset+0.61*artwork))
+    inner_tail=((offset+0.335*artwork,offset+0.56*artwork),(offset+0.292*artwork,offset+0.635*artwork),(offset+0.385*artwork,offset+0.595*artwork))
+    ax,ay,bx,by=offset+0.27*artwork,offset+0.25*artwork,offset+0.76*artwork,offset+0.76*artwork
+    slash_r=0.052*artwork
 
     for y in range(n):
         yf=y+0.5
         for x in range(n):
             xf=x+0.5
-            if not rounded_rect_inside(xf,yf,n,inset,radius):
+            local_x = xf - offset
+            local_y = yf - offset
+            if local_x < 0 or local_y < 0 or local_x > artwork or local_y > artwork:
                 continue
-            t=yf/n
+            if not rounded_rect_inside(local_x,local_y,artwork,inset,radius):
+                continue
+            t=local_y/artwork
             r=int(5*(1-t)+8*t)
             g=int(55*(1-t)+79*t)
             b=int(96*(1-t)+132*t)
@@ -99,6 +121,7 @@ def render(size):
             out.extend((r,g,b,a))
     return bytes(out)
 
+
 def png_rgba(size, raw):
     sig=b"\x89PNG\r\n\x1a\n"
     def chunk(kind,data):
@@ -106,12 +129,14 @@ def png_rgba(size, raw):
     ihdr=struct.pack(">IIBBBBB",size,size,8,6,0,0,0)
     return sig+chunk(b"IHDR",ihdr)+chunk(b"IDAT",zlib.compress(raw,9))+chunk(b"IEND",b"")
 
+
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
     for size in SIZES:
         p=OUT/f"icon-{size}.png"
         p.write_bytes(png_rgba(size,render(size)))
         print(p.relative_to(ROOT))
+
 
 if __name__=="__main__":
     main()
