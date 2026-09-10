@@ -1,0 +1,37 @@
+name: Amazon US final 1.0 acceptance
+
+on:
+  push:
+    branches:
+      - test/us-release-acceptance-v1-final
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser dependency
+        run: |
+          pip install -r requirements-dev.txt
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          which google-chrome || which google-chrome-stable || true
+      - name: Run deep live Amazon US acceptance
+        env:
+          AAS_LONG_MINUTES: '30'
+        run: xvfb-run -a python scripts/us_release_acceptance.py
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-release-acceptance-${{ github.sha }}
+          path: artifacts/us-release-acceptance/
+          if-no-files-found: error
