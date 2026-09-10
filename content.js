@@ -114,6 +114,16 @@
     '--total-rufus-panel-half-width',
   ]);
 
+  // Post-purchase confirmation pages are no longer transaction-sensitive.
+  // They may still host Rufus and can retain the same dock gutter as normal shopping pages.
+  const POST_PURCHASE_SAFE_PATH_PATTERNS = Object.freeze([
+    /^\/gp\/buy\/thankyou(?:\/|$)/i,
+    /^\/checkout\/thankyou(?:\/|$)/i,
+    /^\/hz\/checkout\/thankyou(?:\/|$)/i,
+    /^\/checkout\/order-confirmation(?:\/|$)/i,
+    /^\/hz\/checkout\/order-confirmation(?:\/|$)/i,
+  ]);
+
   const SENSITIVE_PATH_PATTERNS = Object.freeze([
     /^\/gp\/buy(?:\/|$)/i,
     /^\/checkout(?:\/|$)/i,
@@ -243,6 +253,7 @@
 
   function isSensitiveFlow() {
     const path = String(location.pathname || '/');
+    if (POST_PURCHASE_SAFE_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
     return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));
   }
 

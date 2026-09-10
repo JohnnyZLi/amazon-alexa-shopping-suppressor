@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0 — 2026-09-07
+
+First public-release candidate after live marketplace validation and Chrome Web Store preparation.
+
+- Keeps the narrow single purpose: suppress Amazon Alexa for Shopping/Rufus UI and reclaim layout space reserved for its docked sidebar.
+- Ships the persistent toolbar **Suppressor On/Off** control using exactly one Chrome API permission, `storage`, for the local boolean preference.
+- Turning Off restores extension-managed Rufus styles and recorded dock state immediately; turning On resumes suppression on normal Amazon pages without a reload.
+- Includes the saved-Off startup race fix found through real persistent-profile Chromium testing.
+- Includes sensitive checkout/returns fail-open behavior and restoration across same-document navigation.
+- Fixes the post-purchase order-confirmation regression: known thank-you/order-confirmation routes resume Rufus suppression and dock-gutter repair after payment while active checkout remains untouched.
+- Includes the compact redesigned toolbar popup with automatic light/dark `prefers-color-scheme` support and explicit local/no-tracking copy.
+- Retains all 23 explicitly scoped HTTPS Amazon retail storefronts after live real-extension testing across every supported marketplace produced no extension-side failures.
+- Adds permanent synthetic and adversarial Chromium release gates, including toggle storms, multi-tab propagation, style-rewrite recovery, sensitive-flow interleaving, and long-lived mutation/dock churn.
+- Adds release validation evidence and refreshed Chrome Web Store listing/privacy/permission documentation.
+- Updates the 128x128 install/Web Store icon to a 96x96 artwork box with 16px transparent padding on every side and adds a validator assertion for that padding.
+- Adds a current popup-focused 1280x800 store screenshot and simplifies promotional artwork to be more brand-focused.
+- Runtime remains local-only: no analytics, telemetry, remote code, network requests, service worker, cookies, history, tabs, scripting, or activeTab access.
+
 ## 0.3.2 — 2026-09-06
 
 Sensitive-flow restoration and same-document navigation hardening.

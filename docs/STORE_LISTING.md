@@ -20,11 +20,14 @@ Alexa Shopping Suppressor for Amazon handles both parts of that problem:
 - repairs Rufus-specific dock classes, layout variables, and associated page offsets,
 - watches for Amazon dynamically reinjecting the UI,
 - provides a toolbar On/Off switch and remembers that preference locally,
-- restores extension-managed Rufus styles/dock state when turned Off,
+- restores extension-managed Rufus styles and dock state when turned Off,
+- follows the browser/system light or dark color scheme in its popup,
 - deliberately avoids recognized checkout and returns flows,
 - runs entirely in the browser with no analytics, telemetry, remote code, or network requests.
 
 The extension uses a conservative fail-open design. Broad Rufus-like DOM matches are treated only as candidates and must pass safety checks before being modified. If a dynamically managed element stops looking like Alexa/Rufus UI, the extension restores the inline styles it changed.
+
+The first release supports 23 Amazon retail storefronts. The real unpacked extension has been exercised on live pages across all 23 supported marketplaces; Amazon-side automated-access challenges on a small number of search requests were separately retried with alternate live browse and direct product pages.
 
 ### Privacy
 
@@ -38,7 +41,7 @@ Its site access is limited to the explicitly listed Amazon retail storefronts in
 
 ### Open source
 
-Source code, privacy policy, security policy, support information, release history, automated regression tests, and deterministic packaging tools are public in the project repository.
+Source code, privacy policy, security policy, support information, release history, automated regression tests, validation evidence, and deterministic packaging tools are public in the project repository.
 
 **Unofficial; not affiliated with or endorsed by Amazon. Amazon, Alexa, Rufus, and related names are trademarks of their respective owner.**
 
@@ -84,6 +87,8 @@ https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/issues
 
 https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor/blob/main/PRIVACY.md
 
+A Pages-ready privacy route also exists in `docs/privacy/` and can replace the repository URL after GitHub Pages is explicitly enabled and verified.
+
 ## Homepage / source URL
 
 https://github.com/JohnnyZLi/amazon-alexa-shopping-suppressor
@@ -95,12 +100,11 @@ The separate Web Store submission bundle contains:
 - `screenshot-1-before-after-1280x800.png`
 - `screenshot-2-full-width-1280x800.png`
 - `screenshot-3-targeted-ui-1280x800.png`
+- `screenshot-4-popup-control-1280x800.png`
 - `promo-440x280.png`
 - `marquee-1400x560.png` (optional)
 
-The screenshot sources are real browser captures from the original Amazon failure case. Identifying account/header information was cropped out. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos.
-
-Before final submission, add one current screenshot showing the toolbar popup with the On/Off switch so the listing matches v0.3.0.
+The first three screenshot sources are real browser captures from the original Amazon failure case with identifying account/header information cropped out. `screenshot-4-popup-control-1280x800.png` incorporates a current real-Chromium capture of the redesigned popup over sanitized Amazon page evidence. The promotional artwork is original and does not use Amazon/Alexa/Rufus logos.
 
 ## Promotional copy
 

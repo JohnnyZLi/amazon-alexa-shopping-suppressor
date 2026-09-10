@@ -235,6 +235,62 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
         await page.close()
 
 
+async def assert_post_purchase_confirmation_active(browser: Browser) -> None:
+    confirmation_paths = [
+        "/gp/buy/thankyou/handlers/display.html",
+        "/checkout/thankyou",
+        "/hz/checkout/thankyou",
+        "/checkout/order-confirmation",
+        "/hz/checkout/order-confirmation",
+    ]
+    for path in confirmation_paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+            '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+            'style="display:flex; width:123px">x</div></body></html>',
+            path,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#candidate", "display") == "none", path
+        state = await page.eval_on_selector(
+            "body",
+            "element => ({cls: element.className, pad: element.style.paddingLeft, "
+            "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        )
+        assert "rufus-docked-left" not in state["cls"], path
+        assert state["pad"] == "", path
+        assert state["prop"] == "", path
+        await page.close()
+
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/checkout/pay",
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert await page.locator('style[id^="aas-"]').count() == 0
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/gp/buy/thankyou/handlers/display.html'; "
+        "window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    resumed = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" not in resumed["cls"]
+    assert resumed["pad"] == ""
+    assert resumed["prop"] == ""
+    await page.close()
+
+
 async def assert_sensitive_transition_restore_and_resume(browser: Browser) -> None:
     page = await new_page(
         browser,
@@ -447,6 +503,7 @@ async def run() -> None:
         ("explicit dock repair", assert_explicit_dock_repair),
         ("unrelated body padding preservation", assert_unrelated_padding_preserved),
         ("sensitive-route inactivity", assert_sensitive_routes_inactive),
+        ("post-purchase confirmation resumes suppression", assert_post_purchase_confirmation_active),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
         ("Navigation API same-document sensitive transition", assert_navigation_api_sensitive_transition),
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
