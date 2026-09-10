@@ -20,14 +20,13 @@ This document tracks the remaining work between the current release candidate an
 - [x] Managed inline styles are restorable if element identity changes
 - [x] Dock-padding repair requires explicit Rufus dock evidence
 - [x] Recognized checkout/returns routes are intentionally inactive
+- [x] Known post-purchase thank-you/order-confirmation routes resume suppression and gutter repair
 - [x] Sensitive-route deactivation restores recorded Rufus dock state
 - [x] Same-document pushState/replaceState route changes are observed through the Chromium Navigation API
 - [x] Deterministic packaging script includes popup runtime assets
 - [x] Static/security CI validation
 - [x] Synthetic Chromium regression suite
 - [x] Adversarial Chromium regression suite
-- [x] Synthetic tests cover startup-disabled, live Off/On, popup persistence, and sensitive-flow restoration behavior
-- [x] Adversarial tests cover toggle storms, two open tabs, style-rewrite fights, sensitive-flow interleaving, and long-lived churn
 - [x] Real Chromium persistence test across complete browser-process restarts
 - [x] CI uploads the exact candidate ZIP + SHA-256 artifact
 - [x] Tag-driven GitHub release packaging
@@ -38,7 +37,8 @@ This document tracks the remaining work between the current release candidate an
 - [x] Manual browser regression plan documented in `docs/TEST_PLAN.md`
 - [x] Live real-extension smoke coverage across all 23 supported Amazon marketplaces
 - [x] First-release marketplace scope decision: retain all 23 supported storefronts
-- [ ] Complete remaining deep Amazon US release acceptance on the exact release line
+- [x] Deep Amazon US acceptance on the 1.0.0 release tree: homepage, search, product, cart, direct/external navigation, Back/Forward, resize, two-tab toggle, saved-Off fresh tab, public account/orders routes, checkout/returns route inactivity, popup light/dark behavior, and live-tab stability all passed
+- [x] Earlier 30-minute live Amazon tab acceptance passed; the final 1.0.0-tree rerun used a shorter live-tab interval because the runtime delta was already covered by release CI and confirmation-route regression tests
 - [ ] Complete authenticated Amazon Orders / Account / Checkout / Returns acceptance in the publisher's normal Chrome session
 
 ## Branding / listing assets
@@ -53,11 +53,11 @@ All extension artwork is original and does not use Amazon, Alexa, or Rufus logos
 - [x] 1280x800 before/after screenshot
 - [x] 1280x800 full-width result screenshot
 - [x] 1280x800 targeted-UI screenshot
+- [x] 1280x800 current popup-control screenshot
 - [x] 440x280 promotional tile
 - [x] Optional 1400x560 marquee image
 - [x] Source screenshots cropped to remove account name, delivery address, and other identifying header information
-- [x] Capture current redesigned popup in real Chromium in light, dark, and Off states for release evidence
-- [ ] Produce/select the final 1280x800 or 640x400 store screenshot that includes the current toolbar-popup experience
+- [x] Current redesigned popup captured in real Chromium in light, dark, and Off states for release evidence
 
 The Chrome Web Store graphics are distributed as a separate submission bundle rather than inside the runtime extension ZIP. See `docs/ASSETS.md`.
 
@@ -74,7 +74,7 @@ The Chrome Web Store graphics are distributed as a separate submission bundle ra
 - [x] Public support URL selected
 - [x] Public repository privacy-policy fallback selected
 - [x] Pages-ready privacy-policy route prepared at `docs/privacy/index.html`
-- [x] Re-reviewed single-purpose, permissions/data-use, listing-image, 2-Step Verification, and current Web Store API guidance on 2026-09-07
+- [x] Current Web Store requirements re-reviewed before release handoff
 - [ ] Enable/verify the optional polished GitHub Pages privacy-policy URL before Web Store submission, or keep the public repository privacy URL
 
 **Working title:** Alexa Shopping Suppressor for Amazon
@@ -99,28 +99,19 @@ The Chrome Web Store graphics are distributed as a separate submission bundle ra
 
 ## Manual actions that still require the publisher
 
-The following require the publisher's authenticated Amazon/Google/Chrome session or repository settings not exposed by the current connector:
+The remaining manual gate is intentionally small:
 
-1. Signed-in Amazon acceptance for actual Orders, Account, Checkout, and Returns controls.
-2. Enabling GitHub Pages if the polished Pages privacy URL is desired; the public repository privacy URL is already a viable fallback.
-3. Chrome Web Store developer registration/payment if not already complete.
-4. Publisher identity/account settings and 2-Step Verification.
-5. Uploading the final ZIP and store graphics to the Web Store dashboard.
-6. Completing/confirming the dashboard Store Listing and Privacy declarations.
-7. Clicking the final submission/publish controls.
+1. In a fresh Chrome profile, load the exact final ZIP once and confirm the new install defaults to Suppressor **On**.
+2. In the normal signed-in Amazon session, smoke-test actual Orders, Account, Checkout, and Returns controls; exercise normal→checkout→normal and normal→returns→normal once, and repeat one sensitive transition while the suppressor is saved Off.
+3. A live signed-in post-purchase confirmation retest can wait until the next natural purchase; do not place an order solely for testing.
+4. Register/verify the Chrome Web Store publisher account, enable Google 2-Step Verification, upload the final ZIP and separate store assets, complete Store Listing + Privacy + Distribution, and submit for review.
+5. GitHub Pages is optional; the public repository privacy-policy URL is already a viable fallback.
 
 ## Release procedure
 
-1. Confirm all normal CI gates are green.
-2. Complete the deep live Amazon US acceptance pass and record any Amazon-runner limitations separately from extension failures.
-3. Complete the signed-in Orders / Account / Checkout / Returns checks in the publisher's normal Chrome session.
-4. Resolve any regression found by those checks.
-5. Confirm the final store screenshot and privacy-policy URL.
-6. Update `manifest.json` to `1.0.0` and finalize `CHANGELOG.md` / README release status.
-7. Run static validation, synthetic Chromium regressions, adversarial Chromium regressions, and deterministic packaging.
-8. Download and inspect the exact `extension-candidate-<commit SHA>` artifact from the final candidate commit.
-9. Extract that exact ZIP and perform the final install smoke check.
-10. Merge the final release preparation commit(s) to `main`.
-11. Tag the exact release commit as `v1.0.0`.
-12. The release workflow re-validates, re-tests, packages, verifies the tag/version match, and creates the GitHub Release with ZIP + SHA-256.
-13. Submit that exact ZIP and the separate Web Store graphics bundle to the Chrome Web Store.
+1. `1.0.0` release preparation is merged to `main` and main CI is green.
+2. Complete the short publisher-only signed-in Amazon smoke test above.
+3. Resolve any regression found by that check.
+4. Tag the exact accepted `main` commit as `v1.0.0`.
+5. The release workflow re-validates, re-tests, packages, verifies the tag/version match, and creates the GitHub Release with ZIP + SHA-256.
+6. Submit that exact release ZIP and the separate Web Store graphics bundle to the Chrome Web Store.
