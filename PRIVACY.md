@@ -16,7 +16,7 @@ The extension:
 - does not send page contents, DOM data, or the toggle preference anywhere;
 - does not load remote code or remote dependencies.
 
-The extension is intentionally inactive on recognized Amazon checkout and returns routes. Known post-purchase thank-you/order-confirmation routes are treated as non-sensitive so normal Alexa/Rufus suppression and dock-gutter repair can resume after a transaction has completed.
+The extension is intentionally inactive on recognized active Amazon checkout routes. Known post-purchase thank-you/order-confirmation routes and Amazon return-workflow routes use normal Alexa/Rufus suppression so the sidebar gutter can be repaired after purchase and during returns; non-Rufus return controls are left untouched by the extension.
 
 No personal data is collected or retained. The local `enabled` preference remains in Chrome's extension storage until the user changes it, clears the extension's data, or removes the extension.
 
