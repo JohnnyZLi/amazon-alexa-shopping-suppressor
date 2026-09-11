@@ -8,7 +8,7 @@
    * - Continuously undo Rufus docking state that creates the large blank side gutter.
    * - Prefer false negatives over false positives: never hide page-shell/main-content elements.
    * - Restore inline styles if a dynamic element stops being a Rufus/Alexa candidate.
-   * - Stay entirely inactive on sensitive checkout/returns flows.
+   * - Stay entirely inactive on active checkout flows; returns keep normal Rufus suppression.
    * - No network requests or remote dependencies; Chrome storage is used only for the local on/off preference.
    */
 
@@ -124,13 +124,13 @@
     /^\/hz\/checkout\/order-confirmation(?:\/|$)/i,
   ]);
 
+  // Only active checkout is fail-open. Returns pages can suffer the same Rufus
+  // dock-gutter bug, so suppression remains active there while selector safety protects
+  // the return workflow itself.
   const SENSITIVE_PATH_PATTERNS = Object.freeze([
     /^\/gp\/buy(?:\/|$)/i,
     /^\/checkout(?:\/|$)/i,
     /^\/hz\/checkout(?:\/|$)/i,
-    /^\/spr\/returns(?:\/|$)/i,
-    /^\/hz\/returns(?:\/|$)/i,
-    /^\/gp\/your-account\/returns(?:\/|$)/i,
   ]);
 
   const PAGE_SHELL_TAGS = new Set(['HTML', 'HEAD', 'BODY']);

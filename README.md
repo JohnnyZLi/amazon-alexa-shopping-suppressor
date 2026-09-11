@@ -34,7 +34,7 @@ Click the extension icon in the Chrome toolbar and switch **Suppressor** on or o
 - The only stored value is a boolean named `enabled`.
 - Turning it off immediately disconnects the suppressor, removes its injected styles, restores managed inline styles, and restores Rufus dock classes/styles that the extension had removed on that page.
 - Turning it back on immediately resumes normal suppression on non-sensitive Amazon pages.
-- Checkout and recognized returns routes remain untouched regardless of the toggle state.
+- Active checkout routes remain untouched regardless of the toggle state. Return-workflow pages keep normal Rufus suppression so the sidebar gutter is repaired while non-Rufus return controls remain untouched.
 - The popup automatically follows the browser/system light or dark color scheme; no extra theme setting or permission is stored.
 
 ## Security / privacy model
@@ -73,7 +73,7 @@ The real unpacked extension has been exercised on live pages across **all 23 sup
 
 ## Sensitive-flow safeguard
 
-The extension intentionally remains inactive when the Amazon path matches a recognized checkout or returns route, including the common `/gp/buy/`, `/checkout/`, `/hz/checkout/`, `/spr/returns/`, `/hz/returns/`, and `/gp/your-account/returns/` families.
+The extension intentionally remains inactive when the Amazon path matches a recognized active checkout route, including the common `/gp/buy/`, `/checkout/`, and `/hz/checkout/` families. Return routes are intentionally active because live testing showed Rufus can leave the same large dock gutter inside the Returns workflow.
 
 If a browser navigation signal reaches one of these paths in the same document, the extension deactivates, disconnects observers/timers, removes its injected styles, and restores tracked inline styles and recorded dock state. Returning to a normal Amazon page resumes suppression when the saved toggle is On.
 
@@ -150,7 +150,7 @@ Legend: ✅ confirmed · ⬜ still requires final acceptance · ⚠️ regressio
 | Your Orders — authenticated | ⬜ | Publisher's signed-in Amazon session required |
 | Account pages — authenticated | ⬜ | Publisher's signed-in Amazon session required |
 | Checkout — authenticated | ➖ | Suppressor must remain inactive; signed-in acceptance required |
-| Returns — authenticated | ➖ | Suppressor must remain inactive; signed-in acceptance required |
+| Returns — authenticated | ⬜ | Rufus suppression/gutter repair active; return controls must remain intact |
 
 The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The live acceptance tracker is GitHub issue #2.
 
