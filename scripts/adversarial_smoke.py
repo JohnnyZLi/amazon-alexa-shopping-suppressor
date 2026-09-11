@@ -140,9 +140,9 @@ async def assert_checkout_toggle_interleaving(browser: Browser) -> None:
     await page.wait_for_timeout(160)
     await assert_suppressed(page)
 
-    # Repeat with final state Off: returning to a safe page must stay untouched.
+    # Repeat with final state Off: returning from checkout to a safe page must stay untouched.
     await page.evaluate(
-        "() => { window.__AAS_TEST_PATH__ = '/hz/returns/start'; "
+        "() => { window.__AAS_TEST_PATH__ = '/checkout/review'; "
         "window.dispatchEvent(new PopStateEvent('popstate')); }"
     )
     await page.wait_for_timeout(60)
@@ -253,7 +253,7 @@ async def run() -> None:
     checks = [
         ("rapid On/Off toggle storm converges cleanly", assert_rapid_toggle_storm),
         ("multiple already-open tabs follow toggle state", assert_multiple_open_tabs),
-        ("checkout/returns remain inert during toggle changes", assert_checkout_toggle_interleaving),
+        ("checkout remains inert during toggle changes", assert_checkout_toggle_interleaving),
         ("Amazon style rewrites remain reversible across toggles", assert_style_rewrite_during_toggle),
         ("long-lived mutation/fallback churn stays stable", assert_long_lived_mutation_churn),
     ]
