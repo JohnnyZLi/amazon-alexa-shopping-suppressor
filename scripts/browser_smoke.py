@@ -219,9 +219,6 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
         "/gp/buy/spc/handlers/display.html",
         "/checkout/pay",
         "/hz/checkout/init",
-        "/spr/returns/start",
-        "/hz/returns/label",
-        "/gp/your-account/returns/home",
     ]
     for path in sensitive:
         page = await new_page(
@@ -232,6 +229,37 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
         await page.wait_for_timeout(130)
         assert await computed(page, "#candidate", "display") == "flex", path
         assert await page.locator('style[id^="aas-"]').count() == 0, path
+        await page.close()
+
+
+async def assert_return_routes_active(browser: Browser) -> None:
+    return_paths = [
+        "/spr/returns/start",
+        "/hz/returns/label",
+        "/gp/your-account/returns/home",
+    ]
+    for path in return_paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+            '--total-rufus-panel-full-width:320px"><main id="return-content">'
+            '<h1>Return reason</h1><button id="return-control">Damaged</button></main>'
+            '<div id="candidate" class="rufus-panel" style="display:flex; width:123px">rufus</div></body></html>',
+            path,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#candidate", "display") == "none", path
+        assert await computed(page, "#return-content", "display") == "block", path
+        assert await computed(page, "#return-control", "display") == "inline-block", path
+        assert await page.locator('style[id^="aas-"]').count() >= 1, path
+        state = await page.eval_on_selector(
+            "body",
+            "element => ({cls: element.className, pad: element.style.paddingLeft, "
+            "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        )
+        assert "rufus-docked-left" not in state["cls"], path
+        assert state["pad"] == "", path
+        assert state["prop"] == "", path
         await page.close()
 
 
@@ -502,7 +530,8 @@ async def run() -> None:
         ("style rewrite re-suppression", assert_style_rewrite_resuppression),
         ("explicit dock repair", assert_explicit_dock_repair),
         ("unrelated body padding preservation", assert_unrelated_padding_preserved),
-        ("sensitive-route inactivity", assert_sensitive_routes_inactive),
+        ("checkout-route inactivity", assert_sensitive_routes_inactive),
+        ("returns keep suppression + return controls intact", assert_return_routes_active),
         ("post-purchase confirmation resumes suppression", assert_post_purchase_confirmation_active),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
         ("Navigation API same-document sensitive transition", assert_navigation_api_sensitive_transition),
