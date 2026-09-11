@@ -8,7 +8,7 @@ First public-release candidate after live marketplace validation and Chrome Web 
 - Ships the persistent toolbar **Suppressor On/Off** control using exactly one Chrome API permission, `storage`, for the local boolean preference.
 - Turning Off restores extension-managed Rufus styles and recorded dock state immediately; turning On resumes suppression on normal Amazon pages without a reload.
 - Includes the saved-Off startup race fix found through real persistent-profile Chromium testing.
-- Includes sensitive checkout/returns fail-open behavior and restoration across same-document navigation.
+- Keeps active checkout fail-open behavior and restoration across same-document navigation. Return workflows remain suppressor-active so Rufus and its blank dock gutter are removed without modifying non-Rufus return controls.
 - Fixes the post-purchase order-confirmation regression: known thank-you/order-confirmation routes resume Rufus suppression and dock-gutter repair after payment while active checkout remains untouched.
 - Includes the compact redesigned toolbar popup with automatic light/dark `prefers-color-scheme` support and explicit local/no-tracking copy.
 - Retains all 23 explicitly scoped HTTPS Amazon retail storefronts after live real-extension testing across every supported marketplace produced no extension-side failures.
