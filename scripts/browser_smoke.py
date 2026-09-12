@@ -498,6 +498,185 @@ async def assert_live_toggle_restore_and_resume(browser: Browser) -> None:
     await page.close()
 
 
+async def assert_dynamic_dock_snapshot_replacement(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    await page.eval_on_selector(
+        "body",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
+    )
+    await page.wait_for_timeout(80)
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, right: element.style.paddingRight, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width'), "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in restored["cls"]
+    assert "rufus-docked-left" not in restored["cls"]
+    assert restored["left"] == ""
+    assert restored["right"] == "390px"
+    assert restored["full"] == ""
+    assert restored["half"] == "390px"
+    await page.close()
+
+
+async def assert_partial_dock_update_preserves_compatible_snapshot(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    await page.eval_on_selector(
+        "body",
+        "element => element.style.setProperty('--total-rufus-panel-full-width', '350px')",
+    )
+    await page.wait_for_timeout(80)
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["left"] == "320px"
+    assert restored["full"] == "350px"
+    await page.close()
+
+
+async def assert_sidebar_only_dock_evidence_repair(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body style="padding-left:320px">'
+        '<main id="content">content</main><div id="rufus-panel" style="display:flex">rufus</div></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#rufus-panel", "display") == "none"
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == ""
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "320px"
+    await page.close()
+
+
+async def assert_return_workflow_rufus_named_controls_are_not_dock_evidence(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body style="padding-left:320px"><main id="return-content">'
+        '<button id="return-control" class="orc-rufus-return-control">Continue return</button>'
+        '</main></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#return-control", "display") == "inline-block"
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "320px"
+    await page.close()
+
+
+async def assert_account_and_order_pages_keep_controls(browser: Browser) -> None:
+    paths = [
+        "/gp/css/homepage.html",
+        "/gp/css/order-history",
+        "/gp/your-account/order-details",
+        "/hz/your-account/order-details",
+    ]
+    for path in paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-right" style="padding-right:340px; '
+            '--total-rufus-panel-half-width:340px"><main id="account-content">'
+            '<button id="account-control">Account action</button></main>'
+            '<div id="rufus-panel" style="display:flex">rufus</div></body></html>',
+            path,
+            storage_enabled=True,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#rufus-panel", "display") == "none", path
+        assert await computed(page, "#account-control", "display") == "inline-block", path
+        assert await page.eval_on_selector("body", "element => element.style.paddingRight") == "", path
+        await page.close()
+
+
+async def assert_returns_checkout_confirmation_lifecycle(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><main id="return-content">'
+        '<button id="return-control">Return item</button></main>'
+        '<div id="candidate" class="rufus-panel" style="display:flex; width:123px">rufus</div></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+
+    await page.eval_on_selector(
+        "body",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
+    )
+    await page.wait_for_timeout(80)
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/checkout/pay'; window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(50)
+    assert await computed(page, "#candidate", "display") == "flex"
+    checkout = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in checkout["cls"]
+    assert checkout["right"] == "390px"
+    assert checkout["half"] == "390px"
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/gp/buy/thankyou/handlers/display.html'; "
+        "window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert await page.eval_on_selector("body", "element => element.style.paddingRight") == ""
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/hz/returns/'; window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert await computed(page, "#return-control", "display") == "inline-block"
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in restored["cls"]
+    assert restored["right"] == "390px"
+    assert restored["half"] == "390px"
+    await page.close()
+
+
 async def assert_popup_toggle(browser: Browser) -> None:
     page = await browser.new_page()
     await page.set_content(
@@ -538,6 +717,12 @@ async def run() -> None:
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
         ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),
         ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
+        ("dynamic dock snapshot replaces stale side", assert_dynamic_dock_snapshot_replacement),
+        ("partial dock update preserves compatible snapshot", assert_partial_dock_update_preserves_compatible_snapshot),
+        ("sidebar-only dock evidence repairs orphaned padding", assert_sidebar_only_dock_evidence_repair),
+        ("return workflow Rufus-named controls are not dock evidence", assert_return_workflow_rufus_named_controls_are_not_dock_evidence),
+        ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
+        ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),
         ("popup persists toggle state", assert_popup_toggle),
     ]
 

@@ -515,6 +515,70 @@ body.rufus-docked-right {
     clearDockingState();
   }
 
+  function rufusSidebarPresent() {
+    const selectors = [
+      '.rufus-panel-container',
+      '#rufus-container',
+      '#rufus-container-main-view',
+      '#rufus-sidebar',
+      '#rufus-panel',
+      '#nav-flyout-rufus',
+    ];
+    return selectors.some((selector) => {
+      try { return Boolean(document.querySelector(selector)); }
+      catch { return false; }
+    });
+  }
+
+  function getRecordedDockSide() {
+    const left = removedDockClasses.has('rufus-docked-left') || removedDockStyles.has('padding-left');
+    const right = removedDockClasses.has('rufus-docked-right') || removedDockStyles.has('padding-right');
+    if (left === right) return null;
+    return left ? 'left' : 'right';
+  }
+
+  function getCurrentDockSide(body, hasDockEvidence) {
+    if (body.classList.contains('rufus-docked-left')) return 'left';
+    if (body.classList.contains('rufus-docked-right')) return 'right';
+    if (!hasDockEvidence) return null;
+    const left = isLargeDockPadding(body.style.getPropertyValue('padding-left'));
+    const right = isLargeDockPadding(body.style.getPropertyValue('padding-right'));
+    if (left === right) return null;
+    return left ? 'left' : 'right';
+  }
+
+  function prepareDockingSnapshot(body, hasDockEvidence) {
+    if (!hasDockEvidence) return;
+
+    const currentSide = getCurrentDockSide(body, hasDockEvidence);
+    const recordedSide = getRecordedDockSide();
+    if (currentSide && recordedSide && currentSide !== recordedSide) clearDockingState();
+
+    const hasLeftClass = body.classList.contains('rufus-docked-left');
+    const hasRightClass = body.classList.contains('rufus-docked-right');
+    if (hasLeftClass || hasRightClass) {
+      removedDockClasses.delete('rufus-docked-left');
+      removedDockClasses.delete('rufus-docked-right');
+    }
+
+    const hasOpening = body.classList.contains('rufus-docked-opening-transition');
+    const hasClosing = body.classList.contains('rufus-docked-closing-transition');
+    if (hasOpening || hasClosing) {
+      removedDockClasses.delete('rufus-docked-opening-transition');
+      removedDockClasses.delete('rufus-docked-closing-transition');
+    }
+
+    const hasFullWidth = Boolean(body.style.getPropertyValue('--total-rufus-panel-full-width'));
+    const hasHalfWidth = Boolean(body.style.getPropertyValue('--total-rufus-panel-half-width'));
+    if (hasFullWidth || hasHalfWidth) {
+      removedDockStyles.delete('--total-rufus-panel-full-width');
+      removedDockStyles.delete('--total-rufus-panel-half-width');
+    }
+
+    if (currentSide === 'left') removedDockStyles.delete('padding-right');
+    if (currentSide === 'right') removedDockStyles.delete('padding-left');
+  }
+
   function repairDocking() {
     if (!active || isSensitiveFlow()) return false;
     const body = document.body;
@@ -522,7 +586,10 @@ body.rufus-docked-right {
 
     const hadDockClass = RUFUS_DOCK_CLASSES.some((name) => body.classList.contains(name));
     const hadDockProperty = RUFUS_DOCK_PROPERTIES.some((name) => Boolean(body.style.getPropertyValue(name)));
-    const hasExplicitDockEvidence = hadDockClass || hadDockProperty;
+    const hadSidebar = rufusSidebarPresent();
+    const hasDockEvidence = hadDockClass || hadDockProperty || hadSidebar;
+
+    prepareDockingSnapshot(body, hasDockEvidence);
 
     let changed = false;
 
@@ -542,7 +609,7 @@ body.rufus-docked-right {
       }
     }
 
-    if (hasExplicitDockEvidence) {
+    if (hasDockEvidence) {
       const left = body.style.getPropertyValue('padding-left');
       const right = body.style.getPropertyValue('padding-right');
       const top = body.style.getPropertyValue('padding-top');

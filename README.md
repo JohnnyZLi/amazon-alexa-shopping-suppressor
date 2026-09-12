@@ -162,7 +162,7 @@ The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The live ac
 - Late-injected Rufus components remain suppressed.
 - Dynamic candidates that stop being Rufus/Alexa are restored.
 - Product/search/cart/account layouts remain usable.
-- Checkout and recognized returns flows remain untouched.
+- Active checkout remains untouched; Returns keeps Rufus suppression/gutter repair while non-Rufus return controls remain intact.
 - No page-shell or primary content container is hidden.
 - Turning the suppressor Off restores extension-managed element styles and recorded dock state on the current page.
 - The Off preference persists across Chrome restarts and leaves Amazon untouched on new pages.
