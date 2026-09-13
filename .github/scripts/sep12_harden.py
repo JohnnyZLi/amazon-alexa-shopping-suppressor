@@ -1,0 +1,342 @@
+from pathlib import Path
+
+
+def replace_once(path, old, new):
+    p = Path(path)
+    text = p.read_text()
+    if old not in text:
+        raise SystemExit(f"marker not found in {path}: {old[:80]!r}")
+    p.write_text(text.replace(old, new, 1))
+
+
+content_old = '''  function restoreDockingState() {
+    const body = document.body;
+    if (body) {
+      for (const className of removedDockClasses) body.classList.add(className);
+      for (const [property, original] of removedDockStyles.entries()) {
+        body.style.setProperty(property, original.value, original.priority || '');
+      }
+    }
+    clearDockingState();
+  }
+
+  function repairDocking() {
+    if (!active || isSensitiveFlow()) return false;
+    const body = document.body;
+    if (!body) return false;
+
+    const hadDockClass = RUFUS_DOCK_CLASSES.some((name) => body.classList.contains(name));
+    const hadDockProperty = RUFUS_DOCK_PROPERTIES.some((name) => Boolean(body.style.getPropertyValue(name)));
+    const hasExplicitDockEvidence = hadDockClass || hadDockProperty;
+
+    let changed = false;
+'''
+content_new = '''  function restoreDockingState() {
+    const body = document.body;
+    if (body) {
+      for (const className of removedDockClasses) body.classList.add(className);
+      for (const [property, original] of removedDockStyles.entries()) {
+        body.style.setProperty(property, original.value, original.priority || '');
+      }
+    }
+    clearDockingState();
+  }
+
+  function rufusSidebarPresent() {
+    const selectors = [
+      '.rufus-panel-container',
+      '#rufus-container',
+      '#rufus-container-main-view',
+      '#rufus-sidebar',
+      '#rufus-panel',
+      '#nav-flyout-rufus',
+    ];
+    return selectors.some((selector) => {
+      try { return Boolean(document.querySelector(selector)); }
+      catch { return false; }
+    });
+  }
+
+  function getRecordedDockSide() {
+    const left = removedDockClasses.has('rufus-docked-left') || removedDockStyles.has('padding-left');
+    const right = removedDockClasses.has('rufus-docked-right') || removedDockStyles.has('padding-right');
+    if (left === right) return null;
+    return left ? 'left' : 'right';
+  }
+
+  function getCurrentDockSide(body, hasDockEvidence) {
+    if (body.classList.contains('rufus-docked-left')) return 'left';
+    if (body.classList.contains('rufus-docked-right')) return 'right';
+    if (!hasDockEvidence) return null;
+    const left = isLargeDockPadding(body.style.getPropertyValue('padding-left'));
+    const right = isLargeDockPadding(body.style.getPropertyValue('padding-right'));
+    if (left === right) return null;
+    return left ? 'left' : 'right';
+  }
+
+  function prepareDockingSnapshot(body, hasDockEvidence) {
+    if (!hasDockEvidence) return;
+
+    const currentSide = getCurrentDockSide(body, hasDockEvidence);
+    const recordedSide = getRecordedDockSide();
+    if (currentSide && recordedSide && currentSide !== recordedSide) clearDockingState();
+
+    const hasLeftClass = body.classList.contains('rufus-docked-left');
+    const hasRightClass = body.classList.contains('rufus-docked-right');
+    if (hasLeftClass || hasRightClass) {
+      removedDockClasses.delete('rufus-docked-left');
+      removedDockClasses.delete('rufus-docked-right');
+    }
+
+    const hasOpening = body.classList.contains('rufus-docked-opening-transition');
+    const hasClosing = body.classList.contains('rufus-docked-closing-transition');
+    if (hasOpening || hasClosing) {
+      removedDockClasses.delete('rufus-docked-opening-transition');
+      removedDockClasses.delete('rufus-docked-closing-transition');
+    }
+
+    const hasFullWidth = Boolean(body.style.getPropertyValue('--total-rufus-panel-full-width'));
+    const hasHalfWidth = Boolean(body.style.getPropertyValue('--total-rufus-panel-half-width'));
+    if (hasFullWidth || hasHalfWidth) {
+      removedDockStyles.delete('--total-rufus-panel-full-width');
+      removedDockStyles.delete('--total-rufus-panel-half-width');
+    }
+
+    if (currentSide === 'left') removedDockStyles.delete('padding-right');
+    if (currentSide === 'right') removedDockStyles.delete('padding-left');
+  }
+
+  function repairDocking() {
+    if (!active || isSensitiveFlow()) return false;
+    const body = document.body;
+    if (!body) return false;
+
+    const hadDockClass = RUFUS_DOCK_CLASSES.some((name) => body.classList.contains(name));
+    const hadDockProperty = RUFUS_DOCK_PROPERTIES.some((name) => Boolean(body.style.getPropertyValue(name)));
+    const hadSidebar = rufusSidebarPresent();
+    const hasDockEvidence = hadDockClass || hadDockProperty || hadSidebar;
+
+    prepareDockingSnapshot(body, hasDockEvidence);
+
+    let changed = false;
+'''
+replace_once('content.js', content_old, content_new)
+replace_once('content.js', '    if (hasExplicitDockEvidence) {', '    if (hasDockEvidence) {')
+
+
+tests_marker = 'async def assert_popup_toggle(browser: Browser) -> None:\n'
+tests = r'''async def assert_dynamic_dock_snapshot_replacement(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    await page.eval_on_selector(
+        "body",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
+    )
+    await page.wait_for_timeout(80)
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, right: element.style.paddingRight, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width'), "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in restored["cls"]
+    assert "rufus-docked-left" not in restored["cls"]
+    assert restored["left"] == ""
+    assert restored["right"] == "390px"
+    assert restored["full"] == ""
+    assert restored["half"] == "390px"
+    await page.close()
+
+
+async def assert_partial_dock_update_preserves_compatible_snapshot(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><div id="candidate" class="rufus-panel" '
+        'style="display:flex; width:123px">x</div></body></html>',
+        "/dp/example",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    await page.eval_on_selector(
+        "body",
+        "element => element.style.setProperty('--total-rufus-panel-full-width', '350px')",
+    )
+    await page.wait_for_timeout(80)
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, left: element.style.paddingLeft, "
+        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in restored["cls"]
+    assert restored["left"] == "320px"
+    assert restored["full"] == "350px"
+    await page.close()
+
+
+async def assert_sidebar_only_dock_evidence_repair(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body style="padding-left:320px">'
+        '<main id="content">content</main><div id="rufus-panel" style="display:flex">rufus</div></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#rufus-panel", "display") == "none"
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == ""
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "320px"
+    await page.close()
+
+
+async def assert_return_workflow_rufus_named_controls_are_not_dock_evidence(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body style="padding-left:320px"><main id="return-content">'
+        '<button id="return-control" class="orc-rufus-return-control">Continue return</button>'
+        '</main></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#return-control", "display") == "inline-block"
+    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "320px"
+    await page.close()
+
+
+async def assert_account_and_order_pages_keep_controls(browser: Browser) -> None:
+    paths = [
+        "/gp/css/homepage.html",
+        "/gp/css/order-history",
+        "/gp/your-account/order-details",
+        "/hz/your-account/order-details",
+    ]
+    for path in paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-right" style="padding-right:340px; '
+            '--total-rufus-panel-half-width:340px"><main id="account-content">'
+            '<button id="account-control">Account action</button></main>'
+            '<div id="rufus-panel" style="display:flex">rufus</div></body></html>',
+            path,
+            storage_enabled=True,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#rufus-panel", "display") == "none", path
+        assert await computed(page, "#account-control", "display") == "inline-block", path
+        assert await page.eval_on_selector("body", "element => element.style.paddingRight") == "", path
+        await page.close()
+
+
+async def assert_returns_checkout_confirmation_lifecycle(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><main id="return-content">'
+        '<button id="return-control">Return item</button></main>'
+        '<div id="candidate" class="rufus-panel" style="display:flex; width:123px">rufus</div></body></html>',
+        "/spr/returns/",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+
+    await page.eval_on_selector(
+        "body",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
+    )
+    await page.wait_for_timeout(80)
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/checkout/pay'; window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(50)
+    assert await computed(page, "#candidate", "display") == "flex"
+    checkout = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in checkout["cls"]
+    assert checkout["right"] == "390px"
+    assert checkout["half"] == "390px"
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/gp/buy/thankyou/handlers/display.html'; "
+        "window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert await page.eval_on_selector("body", "element => element.style.paddingRight") == ""
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/hz/returns/'; window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#candidate", "display") == "none"
+    assert await computed(page, "#return-control", "display") == "inline-block"
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
+    restored = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in restored["cls"]
+    assert restored["right"] == "390px"
+    assert restored["half"] == "390px"
+    await page.close()
+
+
+'''
+replace_once('scripts/browser_smoke.py', tests_marker, tests + tests_marker)
+
+list_old = '''        ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
+        ("popup persists toggle state", assert_popup_toggle),
+'''
+list_new = '''        ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
+        ("dynamic dock snapshot replaces stale side", assert_dynamic_dock_snapshot_replacement),
+        ("partial dock update preserves compatible snapshot", assert_partial_dock_update_preserves_compatible_snapshot),
+        ("sidebar-only dock evidence repairs orphaned padding", assert_sidebar_only_dock_evidence_repair),
+        ("return workflow Rufus-named controls are not dock evidence", assert_return_workflow_rufus_named_controls_are_not_dock_evidence),
+        ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
+        ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),
+        ("popup persists toggle state", assert_popup_toggle),
+'''
+replace_once('scripts/browser_smoke.py', list_old, list_new)
+
+replace_once(
+    'scripts/validate.py',
+    '    "hasExplicitDockEvidence",\n',
+    '    "hasDockEvidence",\n    "rufusSidebarPresent",\n    "prepareDockingSnapshot",\n    "getRecordedDockSide",\n    "getCurrentDockSide",\n',
+)
+
+replace_once(
+    'README.md',
+    '- Checkout and recognized returns flows remain untouched.',
+    '- Active checkout remains untouched; Returns keeps Rufus suppression/gutter repair while non-Rufus return controls remain intact.',
+)
+
+changelog_marker = '- Keeps active checkout fail-open behavior and restoration across same-document navigation. Return workflows remain suppressor-active so Rufus and its blank dock gutter are removed without modifying non-Rufus return controls.\n'
+changelog_add = changelog_marker + (
+    '- Reconciles dynamic dock snapshots so Off/checkout restoration follows Amazon\'s latest left/right and full/half-width Rufus state instead of accumulating stale state.\n'
+    '- Treats a confirmed Rufus sidebar as conservative dock evidence, repairing orphaned large body padding even when Amazon has already dropped its dock class/width variable.\n'
+    '- Adds lifecycle regressions for Returns→checkout→order confirmation→Returns, signed-in-style account/order pages, sidebar-only gutter state, and Rufus-named return controls that must remain untouched.\n'
+)
+replace_once('CHANGELOG.md', changelog_marker, changelog_add)
