@@ -8,7 +8,7 @@
    * - Continuously undo Rufus docking state that creates the large blank side gutter.
    * - Prefer false negatives over false positives: never hide page-shell/main-content elements.
    * - Restore inline styles if a dynamic element stops being a Rufus/Alexa candidate.
-   * - Stay entirely inactive on active checkout flows; returns keep normal Rufus suppression.
+   * - Stay entirely inactive on active checkout and return workflows.
    * - No network requests or remote dependencies; Chrome storage is used only for the local on/off preference.
    */
 
@@ -124,25 +124,14 @@
     /^\/hz\/checkout\/order-confirmation(?:\/|$)/i,
   ]);
 
-  // Only active checkout is fail-open. Returns pages can suffer the same Rufus
-  // dock-gutter bug, so suppression remains active there while selector safety protects
+  // Active checkout and Returns are fail-open. Amazon now reuses Rufus components
+  // as functional transaction UI inside Returns, so suppressing Rufus there can break
   // the return workflow itself.
+  const RETURN_FLOW_PATH_PATTERN = /(?:^|\/)returns?(?:\/|$)/i;
   const SENSITIVE_PATH_PATTERNS = Object.freeze([
     /^\/gp\/buy(?:\/|$)/i,
     /^\/checkout(?:\/|$)/i,
     /^\/hz\/checkout(?:\/|$)/i,
-  ]);
-
-  // Amazon now reuses Rufus conversation components as functional Returns UI.
-  // Preserve those embedded workflow components while still suppressing
-  // the outer shopping-assistant sidebar and repairing its dock gutter.
-  const RETURN_FLOW_PATH_PATTERN = /(?:^|\/)returns?(?:\/|$)/i;
-  const RETURN_FLOW_PRESERVE_SELECTORS = Object.freeze([
-    '#rufus-container-main-view',
-    '.rufus-container-main-view',
-    '.rufus-conversation-container',
-    '.rufus-textarea-container',
-    '.rufus-pill',
   ]);
 
   const PAGE_SHELL_TAGS = new Set(['HTML', 'HEAD', 'BODY']);
@@ -202,7 +191,6 @@
   ].join(',');
   const initSignalSelector = INIT_SIGNAL_SELECTORS.join(',');
   const mainContentSentinelSelector = MAIN_CONTENT_SENTINEL_IDS.map((id) => `#${id}`).join(',');
-  const returnFlowPreserveSelector = RETURN_FLOW_PRESERVE_SELECTORS.join(',');
 
   let userEnabled = false;
   let preferenceLoaded = false;
@@ -268,24 +256,8 @@
   function isSensitiveFlow() {
     const path = String(location.pathname || '/');
     if (POST_PURCHASE_SAFE_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
+    if (RETURN_FLOW_PATH_PATTERN.test(path)) return true;
     return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));
-  }
-
-  function isReturnFlow() {
-    const path = String(location.pathname || '/');
-    return RETURN_FLOW_PATH_PATTERN.test(path);
-  }
-
-  function isReturnWorkflowElement(element) {
-    if (!isReturnFlow()) return false;
-    try {
-      if (element.closest(returnFlowPreserveSelector)) return true;
-      return Boolean(element.closest(
-        '[class*="orc-rufus-"], [id*="orc-rufus-"], [class*="rufus-web-"], [id*="rufus-web-"]'
-      ));
-    } catch {
-      return false;
-    }
   }
 
   function injectStyle(id, cssText) {
@@ -360,7 +332,6 @@ body.rufus-docked-right {
     const classes = getClassString(element).toLowerCase();
     const slot = String(element.getAttribute('data-csa-c-slot-id') || '').toLowerCase();
 
-    if (isReturnWorkflowElement(element)) return true;
     if (classes.includes('rufus-web-') || classes.includes('orc-rufus-')) return true;
     if (id.includes('rufus-web-') || id.includes('orc-rufus-')) return true;
     if (id.startsWith('rufus-text') || id.startsWith('rufus-submit')) return true;
