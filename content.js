@@ -188,6 +188,8 @@
     ...GUARDED_SELECTORS,
     ...HEURISTIC_CANDIDATE_SELECTORS,
   ].join(',');
+  const initSignalSelector = INIT_SIGNAL_SELECTORS.join(',');
+  const mainContentSentinelSelector = MAIN_CONTENT_SENTINEL_IDS.map((id) => `#${id}`).join(',');
 
   let userEnabled = false;
   let preferenceLoaded = false;
@@ -316,21 +318,11 @@ body.rufus-docked-right {
   }
 
   function getClassString(element) {
-    try {
-      if (typeof element.className === 'string') return element.className;
-      if (element.className && typeof element.className.baseVal === 'string') return element.className.baseVal;
-      return String(element.className || '');
-    } catch {
-      return '';
-    }
+    return element.getAttribute('class') || '';
   }
 
   function containsMainContent(element) {
-    for (const id of MAIN_CONTENT_SENTINEL_IDS) {
-      const sentinel = document.getElementById(id);
-      if (sentinel && sentinel !== element && element.contains(sentinel)) return true;
-    }
-    return false;
+    return Boolean(element.querySelector(mainContentSentinelSelector));
   }
 
   function isExplicitlyExcluded(element) {
@@ -375,8 +367,8 @@ body.rufus-docked-right {
       if (PAGE_SHELL_TAGS.has(element.tagName)) return false;
       if (element.id && PAGE_SHELL_IDS.has(element.id)) return false;
       if (isExplicitlyExcluded(element)) return false;
-      if (containsMainContent(element)) return false;
-      return hasRufusIdentity(element);
+      if (!hasRufusIdentity(element)) return false;
+      return !containsMainContent(element);
     } catch (error) {
       warn('Candidate validation failed; leaving element untouched.', error);
       return false;
@@ -727,15 +719,13 @@ body.rufus-docked-right {
   function hasInitializedSignal() {
     if (document.readyState === 'loading') return false;
 
-    for (const selector of INIT_SIGNAL_SELECTORS) {
-      try {
-        const element = document.querySelector(selector);
-        if (!element) continue;
+    try {
+      for (const element of document.querySelectorAll(initSignalSelector)) {
         if (element.children.length > 0) return true;
         if ((element.textContent || '').trim().length > 0) return true;
-      } catch {
-        // Ignore selector/query failures.
       }
+    } catch {
+      // Fail open to the safety timeout if Amazon's DOM becomes unexpected.
     }
 
     return false;
