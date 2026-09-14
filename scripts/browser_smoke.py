@@ -591,6 +591,36 @@ async def assert_return_workflow_rufus_named_controls_are_not_dock_evidence(brow
     await page.close()
 
 
+async def assert_embedded_return_rufus_workflow_stays_usable(browser: Browser) -> None:
+    return_paths = [
+        "/spr/returns/start",
+        "/hz/returns/label",
+        "/gp/your-account/returns/home",
+    ]
+    for path in return_paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+            '--total-rufus-panel-full-width:320px"><main id="return-content">'
+            '<h1 id="return-heading">Select your primary reason for return.</h1>'
+            '<section class="orc-rufus-return-flow"><div id="rufus-container-main-view">'
+            '<div class="rufus-conversation-container"><div id="return-reason" class="rufus-pill">'
+            'Not as Expected</div><p id="return-followup">How was the item not as expected?</p>'
+            '<div class="rufus-textarea-container"><textarea id="return-details">details</textarea></div>'
+            '</div></div></section></main>'
+            '<aside id="rufus-panel" style="display:flex">shopping sidebar</aside></body></html>',
+            path,
+            storage_enabled=True,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#rufus-panel", "display") == "none", path
+        assert await computed(page, "#return-reason", "display") != "none", path
+        assert await computed(page, "#return-followup", "display") != "none", path
+        assert await computed(page, "#return-details", "display") != "none", path
+        assert await page.is_editable("#return-details"), path
+        assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "", path
+        await page.close()
+
 async def assert_account_and_order_pages_keep_controls(browser: Browser) -> None:
     paths = [
         "/gp/css/homepage.html",
@@ -721,6 +751,7 @@ async def run() -> None:
         ("partial dock update preserves compatible snapshot", assert_partial_dock_update_preserves_compatible_snapshot),
         ("sidebar-only dock evidence repairs orphaned padding", assert_sidebar_only_dock_evidence_repair),
         ("return workflow Rufus-named controls are not dock evidence", assert_return_workflow_rufus_named_controls_are_not_dock_evidence),
+        ("embedded Returns Rufus workflow remains usable", assert_embedded_return_rufus_workflow_stays_usable),
         ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
         ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),
         ("popup persists toggle state", assert_popup_toggle),

@@ -45,13 +45,9 @@
     '#rufus-price-ingress',
     '.rufus-panel-container',
     '#rufus-container',
-    '#rufus-container-main-view',
-    '.rufus-conversation-container',
-    '.rufus-textarea-container',
     '#rufus-sidebar',
     '#rufus-panel',
     '#rufus-wrapper',
-    '.rufus-pill',
     '.s-ask-rufus-mshop-suggestion-container',
     '.s-suggestion-nile-desktop-container',
   ]);
@@ -66,7 +62,11 @@
     '[class*="rufus-ingress"]',
     '[data-action*="show-rufus-price-ingress"]',
     '.rufus-container',
+    '#rufus-container-main-view',
     '.rufus-container-main-view',
+    '.rufus-conversation-container',
+    '.rufus-textarea-container',
+    '.rufus-pill',
     '.rufus-sidebar',
     '.rufus-panel',
     '.rufus-wrapper',
@@ -133,6 +133,18 @@
     /^\/hz\/checkout(?:\/|$)/i,
   ]);
 
+  // Amazon now reuses Rufus conversation components as functional Returns UI.
+  // Preserve those embedded workflow components while still suppressing
+  // the outer shopping-assistant sidebar and repairing its dock gutter.
+  const RETURN_FLOW_PATH_PATTERN = /(?:^|\/)returns?(?:\/|$)/i;
+  const RETURN_FLOW_PRESERVE_SELECTORS = Object.freeze([
+    '#rufus-container-main-view',
+    '.rufus-container-main-view',
+    '.rufus-conversation-container',
+    '.rufus-textarea-container',
+    '.rufus-pill',
+  ]);
+
   const PAGE_SHELL_TAGS = new Set(['HTML', 'HEAD', 'BODY']);
   const PAGE_SHELL_IDS = new Set([
     'a-page',
@@ -190,6 +202,7 @@
   ].join(',');
   const initSignalSelector = INIT_SIGNAL_SELECTORS.join(',');
   const mainContentSentinelSelector = MAIN_CONTENT_SENTINEL_IDS.map((id) => `#${id}`).join(',');
+  const returnFlowPreserveSelector = RETURN_FLOW_PRESERVE_SELECTORS.join(',');
 
   let userEnabled = false;
   let preferenceLoaded = false;
@@ -256,6 +269,23 @@
     const path = String(location.pathname || '/');
     if (POST_PURCHASE_SAFE_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
     return SENSITIVE_PATH_PATTERNS.some((pattern) => pattern.test(path));
+  }
+
+  function isReturnFlow() {
+    const path = String(location.pathname || '/');
+    return RETURN_FLOW_PATH_PATTERN.test(path);
+  }
+
+  function isReturnWorkflowElement(element) {
+    if (!isReturnFlow()) return false;
+    try {
+      if (element.closest(returnFlowPreserveSelector)) return true;
+      return Boolean(element.closest(
+        '[class*="orc-rufus-"], [id*="orc-rufus-"], [class*="rufus-web-"], [id*="rufus-web-"]'
+      ));
+    } catch {
+      return false;
+    }
   }
 
   function injectStyle(id, cssText) {
@@ -330,6 +360,7 @@ body.rufus-docked-right {
     const classes = getClassString(element).toLowerCase();
     const slot = String(element.getAttribute('data-csa-c-slot-id') || '').toLowerCase();
 
+    if (isReturnWorkflowElement(element)) return true;
     if (classes.includes('rufus-web-') || classes.includes('orc-rufus-')) return true;
     if (id.includes('rufus-web-') || id.includes('orc-rufus-')) return true;
     if (id.startsWith('rufus-text') || id.startsWith('rufus-submit')) return true;
