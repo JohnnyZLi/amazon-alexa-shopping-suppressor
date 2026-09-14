@@ -193,7 +193,6 @@
   let preferenceLoaded = false;
   let active = false;
   let aggressiveMode = false;
-  let domContentLoaded = document.readyState !== 'loading';
   let bodyObserver = null;
   let domObserver = null;
   let bodyWaitObserver = null;
@@ -244,7 +243,7 @@
       preferenceLoaded = true;
       if (!changed) return;
       if (!userEnabled) {
-        deactivate('disabled by user', true);
+        deactivate('disabled by user');
         return;
       }
       if (!isSensitiveFlow()) activate('enabled by user');
@@ -436,7 +435,7 @@ body.rufus-docked-right {
   }
 
   function restoreUnsafeManagedElements() {
-    for (const element of Array.from(managedElements)) {
+    for (const element of managedElements) {
       if (!element.isConnected) {
         managedElements.delete(element);
         originalInlineStyles.delete(element);
@@ -447,7 +446,7 @@ body.rufus-docked-right {
   }
 
   function restoreAllManagedElements() {
-    for (const element of Array.from(managedElements)) {
+    for (const element of managedElements) {
       if (element.isConnected) restoreManagedElement(element);
       else {
         managedElements.delete(element);
@@ -456,26 +455,16 @@ body.rufus-docked-right {
     }
   }
 
-  function softHideElement(element) {
-    if (!isSafeRufusCandidate(element)) {
-      if (managedElements.has(element)) restoreManagedElement(element);
-      return;
-    }
-    applyManagedStyles(element, SOFT_INLINE_STYLES);
-  }
-
-  function hardHideElement(element) {
-    if (!isSafeRufusCandidate(element)) {
-      if (managedElements.has(element)) restoreManagedElement(element);
-      return;
-    }
-    if (applyManagedStyles(element, HARD_INLINE_STYLES)) log('Hidden', element.id || getClassString(element) || element.tagName);
-  }
-
   function suppressElement(element) {
     if (!active) return;
-    if (aggressiveMode) hardHideElement(element);
-    else softHideElement(element);
+    if (!isSafeRufusCandidate(element)) {
+      if (managedElements.has(element)) restoreManagedElement(element);
+      return;
+    }
+
+    const styles = aggressiveMode ? HARD_INLINE_STYLES : SOFT_INLINE_STYLES;
+    const changed = applyManagedStyles(element, styles);
+    if (aggressiveMode && changed) log('Hidden', element.id || getClassString(element) || element.tagName);
   }
 
   function isLargeDockPadding(value) {
@@ -484,10 +473,6 @@ body.rufus-docked-right {
     if (normalized.includes('rufus') || normalized.includes('--total-rufus-panel')) return true;
     const numeric = Number.parseFloat(normalized);
     return Number.isFinite(numeric) && numeric > CONFIG.LARGE_DOCK_PADDING_PX;
-  }
-
-  function rememberRemovedDockClass(body, className) {
-    if (body.classList.contains(className)) removedDockClasses.add(className);
   }
 
   function rememberRemovedDockStyle(body, property) {
@@ -516,18 +501,13 @@ body.rufus-docked-right {
   }
 
   function rufusSidebarPresent() {
-    const selectors = [
-      '.rufus-panel-container',
-      '#rufus-container',
-      '#rufus-container-main-view',
-      '#rufus-sidebar',
-      '#rufus-panel',
-      '#nav-flyout-rufus',
-    ];
-    return selectors.some((selector) => {
-      try { return Boolean(document.querySelector(selector)); }
-      catch { return false; }
-    });
+    try {
+      return Boolean(document.querySelector(
+        '.rufus-panel-container, #rufus-container, #rufus-container-main-view, #rufus-sidebar, #rufus-panel, #nav-flyout-rufus'
+      ));
+    } catch {
+      return false;
+    }
   }
 
   function getRecordedDockSide() {
@@ -537,10 +517,9 @@ body.rufus-docked-right {
     return left ? 'left' : 'right';
   }
 
-  function getCurrentDockSide(body, hasDockEvidence) {
+  function getCurrentDockSide(body) {
     if (body.classList.contains('rufus-docked-left')) return 'left';
     if (body.classList.contains('rufus-docked-right')) return 'right';
-    if (!hasDockEvidence) return null;
     const left = isLargeDockPadding(body.style.getPropertyValue('padding-left'));
     const right = isLargeDockPadding(body.style.getPropertyValue('padding-right'));
     if (left === right) return null;
@@ -550,7 +529,7 @@ body.rufus-docked-right {
   function prepareDockingSnapshot(body, hasDockEvidence) {
     if (!hasDockEvidence) return;
 
-    const currentSide = getCurrentDockSide(body, hasDockEvidence);
+    const currentSide = getCurrentDockSide(body);
     const recordedSide = getRecordedDockSide();
     if (currentSide && recordedSide && currentSide !== recordedSide) clearDockingState();
 
@@ -595,7 +574,7 @@ body.rufus-docked-right {
 
     for (const className of RUFUS_DOCK_CLASSES) {
       if (body.classList.contains(className)) {
-        rememberRemovedDockClass(body, className);
+        removedDockClasses.add(className);
         body.classList.remove(className);
         changed = true;
       }
@@ -696,12 +675,7 @@ body.rufus-docked-right {
           const targetElement = mutation.target;
           if (!targetElement || targetElement.nodeType !== Node.ELEMENT_NODE) continue;
 
-          if (managedElements.has(targetElement) && !isSafeRufusCandidate(targetElement)) {
-            restoreManagedElement(targetElement);
-            continue;
-          }
-
-          if (managedElements.has(targetElement) || isSafeRufusCandidate(targetElement)) suppressElement(targetElement);
+          suppressElement(targetElement);
         }
       }
 
@@ -730,8 +704,6 @@ body.rufus-docked-right {
       attributes: true,
       attributeFilter: ['class', 'style'],
     });
-
-    repairDocking();
   }
 
   function whenBodyExists(callback) {
@@ -753,7 +725,7 @@ body.rufus-docked-right {
   }
 
   function hasInitializedSignal() {
-    if (document.readyState === 'loading' && !domContentLoaded) return false;
+    if (document.readyState === 'loading') return false;
 
     for (const selector of INIT_SIGNAL_SELECTORS) {
       try {
@@ -773,7 +745,6 @@ body.rufus-docked-right {
     if (!active || aggressiveMode) return;
     aggressiveMode = true;
     installHardHideCSS();
-    repairDocking();
     scanDocument();
     log('Aggressive mode enabled:', reason);
   }
@@ -806,7 +777,7 @@ body.rufus-docked-right {
     fallbackTimer = window.setInterval(() => {
       if (!active) return;
       if (isSensitiveFlow()) {
-        deactivate('sensitive flow detected', true);
+        deactivate('sensitive flow detected');
         return;
       }
       scanDocument();
@@ -824,10 +795,9 @@ body.rufus-docked-right {
     scanAnimationFrame = null;
   }
 
-  function deactivate(reason, restoreDock = false) {
+  function deactivate(reason) {
     if (!active) {
-      if (restoreDock) restoreDockingState();
-      else clearDockingState();
+      restoreDockingState();
       return;
     }
     active = false;
@@ -841,8 +811,7 @@ body.rufus-docked-right {
     bodyWaitObserver = null;
     removeInjectedStyles();
     restoreAllManagedElements();
-    if (restoreDock) restoreDockingState();
-    else clearDockingState();
+    restoreDockingState();
     log('Inactive:', reason);
   }
 
@@ -851,7 +820,6 @@ body.rufus-docked-right {
     active = true;
     aggressiveMode = false;
     startedAt = performance.now();
-    domContentLoaded = document.readyState !== 'loading';
     installSoftHideCSS();
 
     whenBodyExists(() => {
@@ -869,11 +837,11 @@ body.rufus-docked-right {
   function onNavigationSignal(eventName) {
     if (!preferenceLoaded) return;
     if (!userEnabled) {
-      deactivate(`${eventName}: disabled by user`, true);
+      deactivate(`${eventName}: disabled by user`);
       return;
     }
     if (isSensitiveFlow()) {
-      deactivate(`${eventName}: sensitive flow`, true);
+      deactivate(`${eventName}: sensitive flow`);
       return;
     }
     if (!active) activate(`${eventName}: safe flow`);
@@ -884,20 +852,6 @@ body.rufus-docked-right {
   }
 
   async function boot() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        domContentLoaded = true;
-        if (active) {
-          whenBodyExists(() => {
-            if (!active) return;
-            startBodyObserver();
-            startDOMObserver();
-            scanDocument();
-          });
-        }
-      }, { once: true });
-    }
-
     window.addEventListener('load', () => {
       if (active) {
         repairDocking();
@@ -916,7 +870,7 @@ body.rufus-docked-right {
     if (!preferenceLoaded) userEnabled = storedEnabled;
     preferenceLoaded = true;
     if (!userEnabled) {
-      deactivate('disabled by user', true);
+      deactivate('disabled by user');
       log('Disabled by user; extension remains inactive.');
       return;
     }
@@ -930,7 +884,7 @@ body.rufus-docked-right {
   }
 
   boot().catch((error) => {
-    try { deactivate('fatal initialization error', true); } catch { /* best effort */ }
+    try { deactivate('fatal initialization error'); } catch { /* best effort */ }
     warn('Fatal initialization error; extension deactivated.', error);
   });
 })();
