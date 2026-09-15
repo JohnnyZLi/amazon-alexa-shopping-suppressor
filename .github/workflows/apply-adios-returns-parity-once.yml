@@ -55,7 +55,7 @@ jobs:
         run: python scripts/browser_smoke.py
 
       - name: Run adversarial Chromium regression checks
-        run: python scripts/adversarial_regression.py
+        run: python scripts/adversarial_smoke.py
 
       - name: Build deterministic extension package
         run: python scripts/package.py
