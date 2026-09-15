@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# One-time helper: align Returns handling with the installed Adios 2.0.0 behavior.
+
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
     count = text.count(old)
