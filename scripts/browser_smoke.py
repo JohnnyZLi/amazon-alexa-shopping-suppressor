@@ -219,9 +219,6 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
         "/gp/buy/spc/handlers/display.html",
         "/checkout/pay",
         "/hz/checkout/init",
-        "/spr/returns/start",
-        "/hz/returns/label",
-        "/gp/your-account/returns/home",
     ]
     for path in sensitive:
         page = await new_page(
@@ -232,6 +229,37 @@ async def assert_sensitive_routes_inactive(browser: Browser) -> None:
         await page.wait_for_timeout(130)
         assert await computed(page, "#candidate", "display") == "flex", path
         assert await page.locator('style[id^="aas-"]').count() == 0, path
+        await page.close()
+
+
+async def assert_return_routes_active(browser: Browser) -> None:
+    return_paths = [
+        "/spr/returns/start",
+        "/hz/returns/label",
+        "/gp/your-account/returns/home",
+    ]
+    for path in return_paths:
+        page = await new_page(
+            browser,
+            '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+            '--total-rufus-panel-full-width:320px"><main id="return-content">'
+            '<h1>Return reason</h1><button id="return-control">Damaged</button></main>'
+            '<div id="candidate" class="rufus-panel" style="display:flex; width:123px">rufus</div></body></html>',
+            path,
+        )
+        await page.wait_for_timeout(130)
+        assert await computed(page, "#candidate", "display") == "none", path
+        assert await computed(page, "#return-content", "display") == "block", path
+        assert await computed(page, "#return-control", "display") == "inline-block", path
+        assert await page.locator('style[id^="aas-"]').count() >= 1, path
+        state = await page.eval_on_selector(
+            "body",
+            "element => ({cls: element.className, pad: element.style.paddingLeft, "
+            "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        )
+        assert "rufus-docked-left" not in state["cls"], path
+        assert state["pad"] == "", path
+        assert state["prop"] == "", path
         await page.close()
 
 
@@ -536,7 +564,7 @@ async def assert_sidebar_only_dock_evidence_repair(browser: Browser) -> None:
         browser,
         '<html><head></head><body style="padding-left:320px">'
         '<main id="content">content</main><div id="rufus-panel" style="display:flex">rufus</div></body></html>',
-        "/dp/example",
+        "/spr/returns/",
         storage_enabled=True,
     )
     await page.wait_for_timeout(130)
@@ -575,6 +603,8 @@ async def assert_embedded_return_rufus_workflow_stays_usable(browser: Browser) -
             '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
             '--total-rufus-panel-full-width:320px"><main id="return-content">'
             '<h1 id="return-heading">Select your primary reason for return.</h1>'
+            '<div id="return-ai-ingress" class="s-ask-rufus-mshop-suggestion-container">AI return ingress</div>'
+            '<div id="return-ai-options" class="s-suggestion-nile-desktop-container">AI return options</div>'
             '<section class="orc-rufus-return-flow"><div id="rufus-container-main-view">'
             '<div class="rufus-conversation-container"><div id="return-reason" class="rufus-pill">'
             'Not as Expected</div><p id="return-followup">How was the item not as expected?</p>'
@@ -585,14 +615,31 @@ async def assert_embedded_return_rufus_workflow_stays_usable(browser: Browser) -
             storage_enabled=True,
         )
         await page.wait_for_timeout(130)
-        assert await computed(page, "#rufus-panel", "display") == "flex", path
+        assert await computed(page, "#rufus-panel", "display") == "none", path
+        assert await computed(page, "#return-ai-ingress", "display") != "none", path
+        assert await computed(page, "#return-ai-options", "display") != "none", path
         assert await computed(page, "#return-reason", "display") != "none", path
         assert await computed(page, "#return-followup", "display") != "none", path
         assert await computed(page, "#return-details", "display") != "none", path
         assert await page.is_editable("#return-details"), path
-        assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "320px", path
-        assert await page.locator('style[id^="aas-"]').count() == 0, path
+        assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "", path
         await page.close()
+
+async def assert_search_suggestion_surfaces_still_suppressed(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body>'
+        '<div id="shopping-ai-ingress" class="s-ask-rufus-mshop-suggestion-container">shopping AI</div>'
+        '<div id="shopping-ai-options" class="s-suggestion-nile-desktop-container">shopping suggestions</div>'
+        '</body></html>',
+        "/s?k=portable+charger",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#shopping-ai-ingress", "display") == "none"
+    assert await computed(page, "#shopping-ai-options", "display") == "none"
+    await page.close()
+
 
 async def assert_account_and_order_pages_keep_controls(browser: Browser) -> None:
     paths = [
@@ -629,16 +676,28 @@ async def assert_returns_checkout_confirmation_lifecycle(browser: Browser) -> No
         storage_enabled=True,
     )
     await page.wait_for_timeout(130)
-    assert await computed(page, "#candidate", "display") == "flex"
-    assert await page.locator('style[id^="aas-"]').count() == 0
-    initial = await page.eval_on_selector(
+    assert await computed(page, "#candidate", "display") == "none"
+
+    await page.eval_on_selector(
         "body",
-        "element => ({cls: element.className, left: element.style.paddingLeft, "
-        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        "element => { element.className = 'rufus-docked-right'; "
+        "element.style.cssText = 'padding-right:390px; --total-rufus-panel-half-width:390px'; }",
     )
-    assert "rufus-docked-left" in initial["cls"]
-    assert initial["left"] == "320px"
-    assert initial["full"] == "320px"
+    await page.wait_for_timeout(80)
+
+    await page.evaluate(
+        "() => { window.__AAS_TEST_PATH__ = '/checkout/pay'; window.dispatchEvent(new PopStateEvent('popstate')); }"
+    )
+    await page.wait_for_timeout(50)
+    assert await computed(page, "#candidate", "display") == "flex"
+    checkout = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
+    )
+    assert "rufus-docked-right" in checkout["cls"]
+    assert checkout["right"] == "390px"
+    assert checkout["half"] == "390px"
 
     await page.evaluate(
         "() => { window.__AAS_TEST_PATH__ = '/gp/buy/thankyou/handlers/display.html'; "
@@ -646,23 +705,25 @@ async def assert_returns_checkout_confirmation_lifecycle(browser: Browser) -> No
     )
     await page.wait_for_timeout(130)
     assert await computed(page, "#candidate", "display") == "none"
-    assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == ""
+    assert await page.eval_on_selector("body", "element => element.style.paddingRight") == ""
 
     await page.evaluate(
         "() => { window.__AAS_TEST_PATH__ = '/hz/returns/'; window.dispatchEvent(new PopStateEvent('popstate')); }"
     )
     await page.wait_for_timeout(80)
-    assert await computed(page, "#candidate", "display") == "flex"
+    assert await computed(page, "#candidate", "display") == "none"
     assert await computed(page, "#return-control", "display") == "inline-block"
-    assert await page.locator('style[id^="aas-"]').count() == 0
+
+    await page.evaluate("() => chrome.storage.local.set({ enabled: false })")
+    await page.wait_for_timeout(50)
     restored = await page.eval_on_selector(
         "body",
-        "element => ({cls: element.className, left: element.style.paddingLeft, "
-        "full: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+        "element => ({cls: element.className, right: element.style.paddingRight, "
+        "half: element.style.getPropertyValue('--total-rufus-panel-half-width')})",
     )
-    assert "rufus-docked-left" in restored["cls"]
-    assert restored["left"] == "320px"
-    assert restored["full"] == "320px"
+    assert "rufus-docked-right" in restored["cls"]
+    assert restored["right"] == "390px"
+    assert restored["half"] == "390px"
     await page.close()
 
 
@@ -698,7 +759,8 @@ async def run() -> None:
         ("style rewrite re-suppression", assert_style_rewrite_resuppression),
         ("explicit dock repair", assert_explicit_dock_repair),
         ("unrelated body padding preservation", assert_unrelated_padding_preserved),
-        ("checkout/Returns routes fail open", assert_sensitive_routes_inactive),
+        ("checkout-route inactivity", assert_sensitive_routes_inactive),
+        ("returns keep suppression + return controls intact", assert_return_routes_active),
         ("post-purchase confirmation resumes suppression", assert_post_purchase_confirmation_active),
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
         ("Navigation API same-document sensitive transition", assert_navigation_api_sensitive_transition),
@@ -709,9 +771,10 @@ async def run() -> None:
         ("partial dock update preserves compatible snapshot", assert_partial_dock_update_preserves_compatible_snapshot),
         ("sidebar-only dock evidence repairs orphaned padding", assert_sidebar_only_dock_evidence_repair),
         ("return workflow Rufus-named controls are not dock evidence", assert_return_workflow_rufus_named_controls_are_not_dock_evidence),
-        ("embedded Returns Rufus workflow is untouched", assert_embedded_return_rufus_workflow_stays_usable),
+        ("embedded Returns Rufus workflow remains usable", assert_embedded_return_rufus_workflow_stays_usable),
+        ("shopping suggestion surfaces remain suppressed off Returns", assert_search_suggestion_surfaces_still_suppressed),
         ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
-        ("Returns/confirmation lifecycle deactivates and restores cleanly", assert_returns_checkout_confirmation_lifecycle),
+        ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),
         ("popup persists toggle state", assert_popup_toggle),
     ]
 
