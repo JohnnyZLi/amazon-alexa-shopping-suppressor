@@ -1,11 +1,20 @@
 # Amazon Returns regression — pre-1.0.0
 
-During signed-in Amazon US acceptance, the publisher reproduced the same Rufus dock-gutter failure inside the Returns Center: Alexa for Shopping remained present and the return workflow was shifted by a large blank left gutter.
+Two separate signed-in Amazon US regressions shaped the Returns policy before 1.0.0.
 
-Root cause: the pre-release safety policy treated the entire `/spr/returns/`, `/hz/returns/`, and `/gp/your-account/returns/` route families as sensitive and deliberately disabled the suppressor there. That policy prevented the extension from repairing Rufus even though the return controls themselves are unrelated to Rufus.
+The first regression came from treating the entire `/spr/returns/`, `/hz/returns/`, and `/gp/your-account/returns/` route families as sensitive and disabling the suppressor there. Rufus remained present and could leave the Returns workflow shifted by a large blank dock gutter. The policy was changed so **active checkout** remains fail-open/inactive while Returns stays suppressor-active.
 
-The 1.0.0 release line now keeps **active checkout** fail-open/inactive, but allows normal Rufus suppression and dock repair on return-workflow routes. Existing selector/page-shell protections still prevent non-Rufus return controls from being managed.
+A later live test exposed a subtler problem: Amazon had begun reusing Rufus components inside the functional return-reason prompt itself. The extension already excluded `rufus-web-*`, `orc-rufus-*`, Rufus text/submit controls, and known Rufus input/submit slots, but `.s-ask-rufus-mshop-suggestion-container` and `.s-suggestion-nile-desktop-container` were still in unconditional document-start suppression. That allowed functional Returns UI to disappear before JavaScript safety checks could protect it.
 
-Permanent Chromium regression coverage verifies all three return-route families with a Rufus panel plus dock gutter present: the Rufus candidate is suppressed, the gutter is repaired, and representative return content/control elements remain visible and usable.
+Comparison with the publisher's installed Adios Alexa 2.0.0 build showed those two suggestion containers were not targeted there. They are now guarded selectors and are explicitly preserved when they belong to a Returns workflow, along with the known Rufus main-view, conversation, textarea, and pill components. The separate shopping-assistant panel remains suppressible and Rufus dock-gutter repair remains active.
 
-The signed-in screenshot that exposed this regression contains account/location/order information and is intentionally not committed to the repository.
+Permanent Chromium regression coverage verifies that:
+
+- the Rufus shopping panel is suppressed on Returns;
+- the dock gutter is repaired;
+- Rufus-powered return reason, follow-up, suggestion, and textarea components remain visible and usable;
+- those same shopping-suggestion surfaces remain suppressible on ordinary non-Returns pages.
+
+The publisher live-tested the affected signed-in return prompt after the fix and confirmed it worked while Alexa/Rufus shopping suppression remained active.
+
+Signed-in screenshots can contain account, order, and location information and are intentionally not committed to the repository.
