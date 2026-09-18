@@ -20,7 +20,7 @@ This extension takes a state-aware approach:
 5. **Keep repairing dynamically.** Mutation observers catch Amazon re-injecting Rufus UI or restoring dock state, with a slower fallback scan as a safety net.
 6. **Fail open.** Broad Rufus matches are candidates only and must pass safety checks before being hidden. Structural Amazon page containers are explicitly protected.
 7. **Restore dynamic elements.** If an element previously managed by the extension later stops matching the Rufus/Alexa safety policy, the extension restores the inline style values it replaced.
-8. **Stay out of sensitive flows.** Recognized checkout and returns routes are intentionally left untouched.
+8. **Stay out of active checkout and preserve transaction UI.** Active checkout routes are intentionally left untouched. Returns stays suppressor-active, but Rufus-powered return controls are explicitly preserved while separate shopping-assistant surfaces and their dock gutter are suppressed.
 9. **Give the user an immediate off switch.** The toolbar popup stores one local `enabled` boolean. Turning the suppressor off restores managed Rufus element styles and the dock state removed by the extension; turning it back on resumes suppression without reloading the page.
 
 The extension does **not** remove Amazon DOM nodes. It suppresses UI with styling and repairs layout state so Amazon's own scripts can continue to find elements they expect.
@@ -32,6 +32,7 @@ Click the extension icon in the Chrome toolbar and switch **Suppressor** on or o
 - **On** is the default.
 - The preference persists across Chrome restarts using `chrome.storage.local`.
 - The only stored value is a boolean named `enabled`.
+- If Chrome storage cannot be read, the suppressor stays inactive rather than guessing that the saved preference is On.
 - Turning it off immediately disconnects the suppressor, removes its injected styles, restores managed inline styles, and restores Rufus dock classes/styles that the extension had removed on that page.
 - Turning it back on immediately resumes normal suppression on non-sensitive Amazon pages.
 - Active checkout routes remain untouched regardless of the toggle state. Return-workflow pages keep normal Rufus suppression so the sidebar gutter is repaired while non-Rufus return controls remain untouched.
@@ -59,7 +60,7 @@ The 1.0 release line intentionally keeps a small capability surface:
 - Inline changes made by guarded suppression are tracked and reversible
 - User-triggered disable also restores dock classes/styles removed by the extension
 - Generic numeric dock padding is changed only with explicit Rufus dock evidence
-- Recognized checkout and returns routes are intentionally inactive
+- Active checkout routes are intentionally inactive; Returns remains suppressor-active with workflow-specific preservation safeguards
 
 See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and [SUPPORT.md](SUPPORT.md).
 
@@ -150,7 +151,7 @@ Legend: ✅ confirmed · ⬜ still requires final acceptance · ⚠️ regressio
 | Your Orders — authenticated | ⬜ | Publisher's signed-in Amazon session required |
 | Account pages — authenticated | ⬜ | Publisher's signed-in Amazon session required |
 | Checkout — authenticated | ➖ | Suppressor must remain inactive; signed-in acceptance required |
-| Returns — authenticated | ⬜ | Rufus suppression/gutter repair active; return controls must remain intact |
+| Returns — authenticated | ✅ | Publisher live-tested the Rufus-powered return prompt: workflow controls remained functional while shopping-assistant suppression/gutter repair stayed active |
 
 The detailed procedure is in [docs/TEST_PLAN.md](docs/TEST_PLAN.md). The live acceptance tracker is GitHub issue #2.
 

@@ -106,11 +106,24 @@ async def install_delayed_fake_storage(page: Page, enabled: bool, delay_ms: int)
     )
 
 
+async def install_failing_storage(page: Page, enabled: bool = True) -> None:
+    await install_fake_storage(page, enabled)
+    await page.evaluate(
+        """
+        () => {
+          chrome.storage.local.get = async () => {
+            throw new Error('simulated storage read failure');
+          };
+        }
+        """
+    )
+
+
 async def new_page(
     browser: Browser,
     html: str,
     path: str = "/",
-    storage_enabled: bool | None = None,
+    storage_enabled: bool | None = True,
 ) -> Page:
     page = await browser.new_page()
     await page.set_content(html)
@@ -727,6 +740,30 @@ async def assert_returns_checkout_confirmation_lifecycle(browser: Browser) -> No
     await page.close()
 
 
+async def assert_storage_read_failure_leaves_amazon_untouched(browser: Browser) -> None:
+    page = await browser.new_page()
+    await page.set_content(
+        '<html><head></head><body class="rufus-docked-left" '
+        'style="padding-left:320px; --total-rufus-panel-full-width:320px">'
+        '<div id="candidate" class="rufus-panel" style="display:flex">rufus</div></body></html>'
+    )
+    await page.evaluate("() => { window.__AAS_TEST_PATH__ = '/dp/example'; }")
+    await install_failing_storage(page)
+    await page.add_script_tag(content=SOURCE)
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#candidate", "display") == "flex"
+    assert await page.locator('style[id^="aas-"]').count() == 0
+    state = await page.eval_on_selector(
+        "body",
+        "element => ({cls: element.className, pad: element.style.paddingLeft, "
+        "prop: element.style.getPropertyValue('--total-rufus-panel-full-width')})",
+    )
+    assert "rufus-docked-left" in state["cls"]
+    assert state["pad"] == "320px"
+    assert state["prop"] == "320px"
+    await page.close()
+
+
 async def assert_popup_toggle(browser: Browser) -> None:
     page = await browser.new_page()
     await page.set_content(
@@ -743,6 +780,32 @@ async def assert_popup_toggle(browser: Browser) -> None:
     assert not await page.is_checked("#enabled")
     assert await page.text_content("#status") == "Off"
     assert await page.evaluate("() => window.__AAS_STORAGE_ENABLED__") is False
+    await page.close()
+
+
+async def assert_popup_write_failure_restores_confirmed_state(browser: Browser) -> None:
+    page = await browser.new_page()
+    await page.set_content(
+        '<html><body><input id="enabled" type="checkbox" checked><span id="status"></span></body></html>'
+    )
+    await install_fake_storage(page, True)
+    await page.evaluate(
+        """
+        () => {
+          chrome.storage.local.set = async () => {
+            throw new Error('simulated storage write failure');
+          };
+        }
+        """
+    )
+    await page.add_script_tag(content=POPUP_SOURCE)
+    await page.wait_for_timeout(20)
+    await page.click("#enabled")
+    await page.wait_for_timeout(30)
+    assert await page.is_checked("#enabled")
+    assert await page.text_content("#status") == "On"
+    assert await page.evaluate("() => window.__AAS_STORAGE_ENABLED__") is True
+    assert not await page.is_disabled("#enabled")
     await page.close()
 
 
@@ -765,6 +828,7 @@ async def run() -> None:
         ("safe/sensitive transition restore + resume", assert_sensitive_transition_restore_and_resume),
         ("Navigation API same-document sensitive transition", assert_navigation_api_sensitive_transition),
         ("startup disabled leaves Amazon untouched", assert_startup_disabled),
+        ("storage read failure leaves Amazon untouched", assert_storage_read_failure_leaves_amazon_untouched),
         ("delayed saved-Off startup cannot race activation", assert_delayed_startup_disabled_no_race),
         ("live off/on toggle restores + resumes", assert_live_toggle_restore_and_resume),
         ("dynamic dock snapshot replaces stale side", assert_dynamic_dock_snapshot_replacement),
@@ -776,6 +840,7 @@ async def run() -> None:
         ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
         ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),
         ("popup persists toggle state", assert_popup_toggle),
+        ("popup write failure restores confirmed state", assert_popup_write_failure_restores_confirmed_state),
     ]
 
     async with async_playwright() as playwright:

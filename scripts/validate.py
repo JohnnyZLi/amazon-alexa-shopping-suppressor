@@ -69,6 +69,8 @@ REQUIRED_SOURCE_MARKERS = [
     "HEURISTIC_CANDIDATE_SELECTORS",
     "SENSITIVE_PATH_PATTERNS",
     "POST_PURCHASE_SAFE_PATH_PATTERNS",
+    "RETURN_FLOW_PATH_PATTERN",
+    "RETURN_FLOW_PRESERVE_SELECTORS",
     "PAGE_SHELL_IDS",
     "MAIN_CONTENT_SENTINEL_IDS",
     "STORAGE_KEY",
@@ -189,6 +191,20 @@ def check_javascript(path: Path) -> None:
         fail(f"{path.name} syntax check failed with exit code {exc.returncode}")
 
 
+def selector_array(source: str, name: str) -> set[str]:
+    match = re.search(
+        rf"const {re.escape(name)} = Object\.freeze\(\[(.*?)\]\);",
+        source,
+        flags=re.S,
+    )
+    if not match:
+        fail(f"could not locate {name}")
+    selectors = set(re.findall(r"'([^']+)'", match.group(1)))
+    if not selectors:
+        fail(f"{name} must not be empty")
+    return selectors
+
+
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     content_source = CONTENT.read_text(encoding="utf-8")
@@ -297,16 +313,27 @@ def main() -> None:
         if marker not in content_source:
             fail(f"required hardening marker missing: {marker}")
 
-    static_block = re.search(
-        r"const STATIC_SAFE_SELECTORS = Object\.freeze\(\[(.*?)\]\);",
-        content_source,
-        flags=re.S,
-    )
-    if not static_block:
-        fail("could not locate STATIC_SAFE_SELECTORS")
+    static_selectors = selector_array(content_source, "STATIC_SAFE_SELECTORS")
+    guarded_selectors = selector_array(content_source, "GUARDED_SELECTORS")
+    return_preserve_selectors = selector_array(content_source, "RETURN_FLOW_PRESERVE_SELECTORS")
+
     for selector in (".rufus-container", ".rufus-container-main-view", ".rufus-sidebar", ".rufus-panel", ".rufus-wrapper"):
-        if re.search(rf"['\"]{re.escape(selector)}['\"]", static_block.group(1)):
+        if selector in static_selectors:
             fail(f"broad selector leaked into unconditional CSS: {selector}")
+
+    unsafe_return_overlap = sorted(static_selectors & return_preserve_selectors)
+    if unsafe_return_overlap:
+        fail(
+            "Returns-preserved selectors must never be unconditionally suppressed: "
+            f"{unsafe_return_overlap}"
+        )
+
+    unguarded_return_selectors = sorted(return_preserve_selectors - guarded_selectors)
+    if unguarded_return_selectors:
+        fail(
+            "Returns-preserved selectors must stay in the guarded suppression path: "
+            f"{unguarded_return_selectors}"
+        )
 
     check_javascript(CONTENT)
     check_javascript(POPUP_JS)

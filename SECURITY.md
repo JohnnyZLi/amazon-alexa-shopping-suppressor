@@ -26,6 +26,7 @@ The extension intentionally has a narrow capability surface:
 - fail-open candidate validation before broad Rufus/Alexa suppression;
 - automatic restoration of inline styles if a managed dynamic element stops matching the safety policy;
 - user-triggered disable restores extension-managed element styles and recorded Rufus dock state;
-- no operation on recognized checkout and returns routes.
+- no operation on recognized active checkout routes; Returns remains active only through guarded suppression that preserves known Rufus-powered return-workflow controls;
+- storage-read failures leave suppression inactive rather than assuming the saved preference is On.
 
 Changes that add network access, additional persisted state, remote code, broader site access, or any Chrome permission beyond `storage` require explicit documentation and security review.

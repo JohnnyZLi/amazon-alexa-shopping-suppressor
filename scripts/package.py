@@ -45,14 +45,22 @@ def runtime_files(manifest: dict) -> list[str]:
 
 def write_deterministic_zip(output: Path, files: list[str]) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    # Store entries without DEFLATE so identical inputs produce identical bytes
+    # independently of the host zlib implementation.
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.comment = b""
         for relative in files:
             path = ROOT / relative
             if not path.is_file():
                 raise SystemExit(f"Missing runtime file: {relative}")
             info = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.compress_type = zipfile.ZIP_STORED
+            info.create_system = 3
+            info.internal_attr = 0
             info.external_attr = 0o100644 << 16
+            info.flag_bits = 0
+            info.extra = b""
+            info.comment = b""
             archive.writestr(info, path.read_bytes())
 
 

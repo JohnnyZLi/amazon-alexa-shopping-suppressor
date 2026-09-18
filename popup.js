@@ -5,7 +5,10 @@ const toggle = document.getElementById('enabled');
 const status = document.getElementById('status');
 const stateDescription = document.getElementById('state-description');
 
+let currentEnabled = true;
+
 function render(enabled) {
+  currentEnabled = enabled;
   toggle.checked = enabled;
   status.textContent = enabled ? 'On' : 'Off';
   document.body.dataset.enabled = enabled ? 'true' : 'false';
@@ -29,8 +32,7 @@ async function initialize() {
       await chrome.storage.local.set({ [STORAGE_KEY]: enabled });
       render(enabled);
     } catch (error) {
-      const current = await chrome.storage.local.get({ [STORAGE_KEY]: true });
-      render(current[STORAGE_KEY] !== false);
+      render(currentEnabled);
       console.error('Failed to update suppressor preference.', error);
     } finally {
       toggle.disabled = false;

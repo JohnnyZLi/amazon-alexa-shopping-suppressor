@@ -201,7 +201,6 @@ body[data-state="error"] .status-badge {
   :root {
     --bg: #16181d;
     --surface: #202329;
-    --surface-soft: #262a31;
     --text: #f5f7fa;
     --muted: #a9b0bb;
     --border: #343942;

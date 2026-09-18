@@ -24,7 +24,7 @@ The production content/popup scripts are exercised in Chromium fixtures for:
 - re-suppression after Amazon-like inline-style rewrites,
 - explicit Rufus dock-state repair,
 - preservation of unrelated large body padding,
-- inactivity on known checkout/returns paths,
+- inactivity on known checkout paths plus guarded Returns suppression that preserves functional Rufus-powered return UI,
 - restoration entering sensitive flows and resumption returning safe,
 - saved-Off startup,
 - Off restoration and On resumption without reload,
@@ -36,7 +36,7 @@ The permanent adversarial suite additionally covers:
 
 - more than 120 rapid On/Off state changes,
 - propagation to two already-open Amazon-shaped tabs,
-- repeated toggling while checkout/returns are active,
+- repeated toggling while checkout is active,
 - style-rewrite fights across multiple On/Off cycles,
 - restoration to a new baseline established while Off,
 - accelerated long-lived mutation/fallback churn with repeated Rufus panel replacement and dock-state reassertion.
@@ -74,7 +74,7 @@ Before the final tag, run the dedicated live acceptance job against the current 
 - two open live Amazon tabs with Off/On propagation,
 - a fresh live Amazon tab while Off is saved,
 - public/unauthenticated account and order routes,
-- direct sensitive checkout/returns routes where the route remains reachable,
+- direct checkout and Returns routes where the route remains reachable,
 - live Rufus style rewrite / identity restoration when Amazon exposes a matching candidate,
 - an actual 30-minute live Amazon tab with one health checkpoint per minute.
 
@@ -109,9 +109,9 @@ These checks cannot be truthfully replaced by an anonymous CI runner and remain 
 
 - [ ] Enter actual checkout from a real cart and confirm suppression is inactive and checkout behaves normally.
 - [ ] Return from checkout to a normal Amazon page and confirm suppression resumes if saved On.
-- [ ] Enter an actual returns flow and confirm suppression is inactive and return controls behave normally.
-- [ ] Return from returns to a normal Amazon page and confirm suppression resumes if saved On.
-- [ ] Repeat one normal→sensitive→normal transition with saved Off and confirm suppression stays Off.
+- [x] Enter an actual returns flow and confirm suppression remains active, shopping-assistant UI is suppressed, and Rufus-powered return controls behave normally.
+- [ ] Return from Returns to a normal Amazon page and confirm suppression remains active if saved On.
+- [ ] Repeat one normal→checkout→normal transition with saved Off and confirm suppression stays Off.
 
 Do not perform artificial DOM mutation experiments on checkout, returns, or any transaction-sensitive page.
 
@@ -134,7 +134,7 @@ The final release passes only when all applicable conditions hold:
 - Normal page controls remain usable.
 - Off restores extension-managed Rufus styles and recorded dock state.
 - The saved preference survives popup/browser restart.
-- Sensitive checkout/returns flows are left untouched.
+- Active checkout is left untouched; Returns suppresses shopping-assistant UI while preserving functional return-workflow controls.
 - No page-shell/primary content container is hidden.
 - No recurring extension console exception or obvious high-idle-CPU loop is present.
 - Static, synthetic, adversarial, and deterministic-package CI gates are green.
