@@ -5,12 +5,12 @@
 - Preserves Amazon's Rufus-powered Returns prompt while continuing to suppress the separate Alexa/Rufus shopping assistant and repair its dock gutter.
 - Moves Returns-sensitive shopping-suggestion containers out of unconditional document-start CSS and into the guarded suppression path.
 - Adds static selector invariants so every Returns-preserved selector must stay out of unconditional suppression and remain in the guarded path.
-- Fails inactive if the local saved preference cannot be read, while preserving the normal first-install default of On when storage is available.
 - Simplifies popup write-failure recovery by restoring the last confirmed state without issuing a second storage read.
-- Adds regression coverage for storage-read failure and popup write failure.
+- Adds regression coverage for popup write failure.
 - Adds CI concurrency cancellation and a validation-job timeout.
 - Strengthens deterministic packaging with stored ZIP entries and explicit stable ZIP metadata, avoiding host-zlib compression differences.
 - Synchronizes Returns policy and live-regression evidence across release/security/test documentation.
+- Restores the exact live-tested `cf4e6608` content-script runtime after a subsequent maintenance build correlated with a live Returns regression.
 
 ## 1.0.0 — 2026-09-07
 

@@ -233,22 +233,20 @@
   }
 
   function hasStorageAPI() {
-    return Boolean(
-      typeof chrome !== 'undefined'
+    return typeof chrome !== 'undefined'
       && chrome.storage
       && chrome.storage.local
-      && chrome.storage.onChanged
-    );
+      && chrome.storage.onChanged;
   }
 
   async function readEnabledPreference() {
-    if (!hasStorageAPI()) return false;
+    if (!hasStorageAPI()) return true;
     try {
       const stored = await chrome.storage.local.get({ [STORAGE_KEY]: true });
       return stored[STORAGE_KEY] !== false;
     } catch (error) {
-      warn('Could not read enabled preference; leaving suppression inactive.', error);
-      return false;
+      warn('Could not read enabled preference; defaulting to enabled.', error);
+      return true;
     }
   }
 
