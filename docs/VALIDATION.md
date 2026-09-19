@@ -16,7 +16,7 @@ This document records release evidence separately from the manual test procedure
 
 Normal push/PR CI runs static manifest/source/security validation, the synthetic Chromium regression suite, the adversarial Chromium regression suite, deterministic packaging, SHA-256 generation, and exact candidate artifact upload. The tag-driven release workflow repeats those gates before publishing a GitHub Release.
 
-The synthetic suite covers soft/hard suppression, selector safety, page-shell protection, dynamic identity restoration, inline-style rewrite recovery, dock repair, unrelated-padding preservation, checkout-route inactivity, guarded Returns preservation, post-purchase confirmation activation, safe/sensitive transitions, saved-Off startup, storage-read failure behavior, live Off/On behavior, popup persistence, and popup write-failure recovery.
+The synthetic suite covers soft/hard suppression, selector safety, page-shell protection, dynamic identity restoration, inline-style rewrite recovery, dock repair, unrelated-padding preservation, checkout-route inactivity, guarded Returns preservation, post-purchase confirmation activation, safe/sensitive transitions, saved-Off startup, live Off/On behavior, popup persistence, and popup write-failure recovery.
 
 The adversarial suite additionally covers rapid toggle storms, two already-open tabs, toggle/sensitive-flow interleaving, repeated Amazon-like inline rewrites across On/Off cycles, and accelerated long-lived mutation/dock churn.
 

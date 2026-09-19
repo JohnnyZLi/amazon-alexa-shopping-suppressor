@@ -32,7 +32,6 @@ Click the extension icon in the Chrome toolbar and switch **Suppressor** on or o
 - **On** is the default.
 - The preference persists across Chrome restarts using `chrome.storage.local`.
 - The only stored value is a boolean named `enabled`.
-- If Chrome storage cannot be read, the suppressor stays inactive rather than guessing that the saved preference is On.
 - Turning it off immediately disconnects the suppressor, removes its injected styles, restores managed inline styles, and restores Rufus dock classes/styles that the extension had removed on that page.
 - Turning it back on immediately resumes normal suppression on non-sensitive Amazon pages.
 - Active checkout routes remain untouched regardless of the toggle state. Return-workflow pages keep normal Rufus suppression so the sidebar gutter is repaired while non-Rufus return controls remain untouched.
