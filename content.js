@@ -78,17 +78,14 @@
     '[class*="rufus"][class*="wrapper"]:not([class*="rufus-web-"]):not([class*="orc-rufus-"])',
   ]);
 
+  // Catch-all discovery intentionally mirrors Adios Alexa's narrower strategy.
+  // Generic Rufus-ish data attributes are identity evidence only; they are not
+  // sufficient by themselves to make an arbitrary Amazon element a candidate.
   const HEURISTIC_CANDIDATE_SELECTORS = Object.freeze([
-    '[id*="rufus"]',
-    '[class*="rufus"]',
-    '[id*="nile-inline"]',
-    '[class*="nile-inline"]',
-    '[id*="dpx-nice"]',
-    '[class*="dpx-nice"]',
-    '[id*="dpx-rex-nice"]',
-    '[class*="dpx-smidget"]',
-    '[data-action*="rufus"]',
-    '[data-csa-c-slot-id*="rufus"]',
+    '[id^="rufus-"]:not([id^="rufus-text"]):not([id^="rufus-submit"])',
+    '[class^="rufus-"]:not([class^="rufus-web-"]):not([class^="orc-rufus-"])',
+    '[id$="-rufus"]',
+    '[class$="-rufus"]',
   ]);
 
   const INIT_SIGNAL_SELECTORS = Object.freeze([
@@ -639,12 +636,19 @@ body.rufus-docked-right {
     return changed;
   }
 
+  function getScanSelector() {
+    // Returns is transaction-adjacent and now contains legitimate Rufus-powered
+    // controls. Use only explicitly known selectors there; heuristic catch-alls
+    // remain available on ordinary shopping pages.
+    return isReturnFlow() ? knownSelector : candidateSelector;
+  }
+
   function scanDocument() {
     if (!active || isSensitiveFlow()) return;
     repairDocking();
     restoreUnsafeManagedElements();
     try {
-      const elements = document.querySelectorAll(candidateSelector);
+      const elements = document.querySelectorAll(getScanSelector());
       for (const element of elements) suppressElement(element);
     } catch (error) {
       warn('Candidate scan failed.', error);
@@ -667,11 +671,11 @@ body.rufus-docked-right {
   function inspectAddedNode(node) {
     if (!active || !node || node.nodeType !== Node.ELEMENT_NODE) return;
     const element = /** @type {Element} */ (node);
-
-    suppressElement(element);
+    const scanSelector = getScanSelector();
 
     try {
-      const descendants = element.querySelectorAll(candidateSelector);
+      if (element.matches(scanSelector)) suppressElement(element);
+      const descendants = element.querySelectorAll(scanSelector);
       for (const descendant of descendants) suppressElement(descendant);
     } catch {
       // Fail open; scheduled scan remains a fallback.
@@ -700,7 +704,19 @@ body.rufus-docked-right {
           const targetElement = mutation.target;
           if (!targetElement || targetElement.nodeType !== Node.ELEMENT_NODE) continue;
 
-          suppressElement(targetElement);
+          // Managed elements must always be revalidated so identity loss restores
+          // their original styles. Unmanaged elements are considered only when
+          // they explicitly match the current route's discovery selector.
+          if (managedElements.has(targetElement)) {
+            suppressElement(targetElement);
+            continue;
+          }
+
+          try {
+            if (targetElement.matches(getScanSelector())) suppressElement(targetElement);
+          } catch {
+            // Fail open; scheduled/fallback scans remain available.
+          }
         }
       }
 
