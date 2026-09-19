@@ -625,6 +625,51 @@ async def assert_embedded_return_rufus_workflow_stays_usable(browser: Browser) -
         assert await page.eval_on_selector("body", "element => element.style.paddingLeft") == "", path
         await page.close()
 
+
+async def assert_return_generic_rufus_metadata_is_not_a_scan_root(browser: Browser) -> None:
+    page = await new_page(
+        browser,
+        '<html><head></head><body class="rufus-docked-left" style="padding-left:320px; '
+        '--total-rufus-panel-full-width:320px"><main id="return-content">'
+        '<h1>Select your primary reason for return.</h1>'
+        '<button id="return-choice" class="return-choice" style="display:inline-block">Damaged</button>'
+        '</main><aside id="rufus-panel" style="display:flex">shopping sidebar</aside></body></html>',
+        "/spr/returns/start",
+        storage_enabled=True,
+    )
+    await page.wait_for_timeout(130)
+    assert await computed(page, "#rufus-panel", "display") == "none"
+    assert await computed(page, "#return-choice", "display") == "inline-block"
+
+    # Amazon may add Rufus-ish metadata to legitimate return controls after render.
+    await page.eval_on_selector(
+        "#return-choice",
+        """element => {
+          element.className = 'return-rufus-choice';
+          element.setAttribute('data-action', 'rufus-return-choice');
+          element.setAttribute('data-csa-c-slot-id', 'rufus-return-reason-choice');
+        }""",
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#return-choice", "display") == "inline-block"
+
+    # Newly inserted controls with only generic Rufus-ish metadata must also remain.
+    await page.eval_on_selector(
+        "#return-content",
+        """parent => {
+          const button = document.createElement('button');
+          button.id = 'late-return-choice';
+          button.className = 'return-rufus-choice';
+          button.setAttribute('data-action', 'rufus-return-choice');
+          button.setAttribute('data-csa-c-slot-id', 'rufus-return-reason-choice');
+          button.textContent = 'Changed Mind';
+          parent.appendChild(button);
+        }""",
+    )
+    await page.wait_for_timeout(80)
+    assert await computed(page, "#late-return-choice", "display") == "inline-block"
+    await page.close()
+
 async def assert_search_suggestion_surfaces_still_suppressed(browser: Browser) -> None:
     page = await new_page(
         browser,
@@ -798,6 +843,7 @@ async def run() -> None:
         ("sidebar-only dock evidence repairs orphaned padding", assert_sidebar_only_dock_evidence_repair),
         ("return workflow Rufus-named controls are not dock evidence", assert_return_workflow_rufus_named_controls_are_not_dock_evidence),
         ("embedded Returns Rufus workflow remains usable", assert_embedded_return_rufus_workflow_stays_usable),
+        ("generic Rufus metadata is not a Returns scan root", assert_return_generic_rufus_metadata_is_not_a_scan_root),
         ("shopping suggestion surfaces remain suppressed off Returns", assert_search_suggestion_surfaces_still_suppressed),
         ("account/order pages keep controls while suppressing Rufus", assert_account_and_order_pages_keep_controls),
         ("Returns/checkout/confirmation lifecycle restores latest dock state", assert_returns_checkout_confirmation_lifecycle),

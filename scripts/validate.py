@@ -316,6 +316,20 @@ def main() -> None:
     static_selectors = selector_array(content_source, "STATIC_SAFE_SELECTORS")
     guarded_selectors = selector_array(content_source, "GUARDED_SELECTORS")
     return_preserve_selectors = selector_array(content_source, "RETURN_FLOW_PRESERVE_SELECTORS")
+    heuristic_selectors = selector_array(content_source, "HEURISTIC_CANDIDATE_SELECTORS")
+
+    forbidden_broad_heuristics = {
+        '[id*="rufus"]',
+        '[class*="rufus"]',
+        '[data-action*="rufus"]',
+        '[data-csa-c-slot-id*="rufus"]',
+    }
+    leaked_broad_heuristics = sorted(heuristic_selectors & forbidden_broad_heuristics)
+    if leaked_broad_heuristics:
+        fail(
+            "generic Rufus substring/data-attribute selectors must not be heuristic scan roots: "
+            f"{leaked_broad_heuristics}"
+        )
 
     for selector in (".rufus-container", ".rufus-container-main-view", ".rufus-sidebar", ".rufus-panel", ".rufus-wrapper"):
         if selector in static_selectors:
