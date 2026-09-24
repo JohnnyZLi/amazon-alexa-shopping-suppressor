@@ -10,7 +10,8 @@
 - Adds CI concurrency cancellation and a validation-job timeout.
 - Strengthens deterministic packaging with stored ZIP entries and explicit stable ZIP metadata, avoiding host-zlib compression differences.
 - Synchronizes Returns policy and live-regression evidence across release/security/test documentation.
-- Restores the exact live-tested `cf4e6608` content-script runtime after a subsequent maintenance build correlated with a live Returns regression.
+- Narrows heuristic Rufus discovery to explicit prefix/suffix patterns instead of generic `data-action` / `data-csa-c-slot-id` substring scan roots.
+- Keeps Returns suppressor-active while limiting discovery there to explicitly known selectors, preserving functional Rufus-powered return controls.
 
 ## 1.0.0 — 2026-09-07
 
