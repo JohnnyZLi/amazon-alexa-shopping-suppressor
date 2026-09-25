@@ -13,6 +13,8 @@ Every push and pull request runs:
 
 The tag-driven release workflow repeats these gates and verifies that the `vX.Y.Z` tag exactly matches the manifest version before creating a GitHub Release.
 
+The current permanent browser gate contains **25 synthetic Chromium checks** plus **5 adversarial checks**.
+
 ### Synthetic coverage
 
 The production content/popup scripts are exercised in Chromium fixtures for:
@@ -25,6 +27,7 @@ The production content/popup scripts are exercised in Chromium fixtures for:
 - explicit Rufus dock-state repair,
 - preservation of unrelated large body padding,
 - inactivity on known checkout paths plus guarded Returns suppression that preserves functional Rufus-powered return UI,
+- preservation of legitimate Returns controls carrying generic Rufus-like class/data metadata,
 - restoration entering sensitive flows and resumption returning safe,
 - saved-Off startup,
 - Off restoration and On resumption without reload,
