@@ -16,6 +16,8 @@ This document records release evidence separately from the manual test procedure
 
 Normal push/PR CI runs static manifest/source/security validation, the synthetic Chromium regression suite, the adversarial Chromium regression suite, deterministic packaging, SHA-256 generation, and exact candidate artifact upload. The tag-driven release workflow repeats those gates before publishing a GitHub Release.
 
+The current permanent browser gate passes **25 synthetic Chromium checks** and **5 adversarial checks**.
+
 The synthetic suite covers soft/hard suppression, selector safety, page-shell protection, dynamic identity restoration, inline-style rewrite recovery, dock repair, unrelated-padding preservation, checkout-route inactivity, guarded Returns preservation, post-purchase confirmation activation, safe/sensitive transitions, saved-Off startup, live Off/On behavior, popup persistence, and popup write-failure recovery.
 
 The adversarial suite additionally covers rapid toggle storms, two already-open tabs, toggle/sensitive-flow interleaving, repeated Amazon-like inline rewrites across On/Off cycles, and accelerated long-lived mutation/dock churn.
@@ -46,7 +48,9 @@ Signed-in Amazon US testing later showed that Amazon now reuses Rufus components
 
 Comparison against the publisher's installed Adios Alexa 2.0.0 build showed those suggestion containers were not targeted by Adios. The extension moved `.s-ask-rufus-mshop-suggestion-container` and `.s-suggestion-nile-desktop-container` into the guarded path and treats them as preserved workflow components on Returns routes while continuing to suppress them on ordinary shopping/search pages.
 
-Permanent Chromium coverage now asserts that the embedded Rufus-powered Returns controls remain visible and editable while the separate Rufus panel is hidden and its dock gutter is repaired. The publisher then live-tested the affected signed-in return prompt and confirmed the workflow worked with suppression still active.
+A later live retest exposed one more difference from Adios Alexa 2.0.0: this extension's heuristic discovery was broader and could treat generic Rufus-like `data-action` / `data-csa-c-slot-id` metadata or arbitrary substring matches as scan roots. Discovery was narrowed to explicit Rufus prefix/suffix patterns, and Returns now walks only explicitly known selectors while still suppressing the separate shopping-assistant panel and repairing its dock gutter.
+
+Permanent Chromium coverage now asserts that the embedded Rufus-powered Returns controls remain visible and editable, generic Rufus-like metadata alone does not make a return control a scan root, and the separate Rufus panel is still hidden with its dock gutter repaired. The publisher then live-tested the affected signed-in return prompt with suppression still active.
 
 ## Post-purchase confirmation regression evidence
 
