@@ -8,11 +8,14 @@ A later live test exposed a subtler problem: Amazon had begun reusing Rufus comp
 
 Comparison with the publisher's installed Adios Alexa 2.0.0 build showed those two suggestion containers were not targeted there. They are now guarded selectors and are explicitly preserved when they belong to a Returns workflow, along with the known Rufus main-view, conversation, textarea, and pill components. The separate shopping-assistant panel remains suppressible and Rufus dock-gutter repair remains active.
 
+A subsequent live retest showed that selector exclusions alone were not enough. The extension's heuristic discovery was broader than Adios and could treat generic Rufus-like data attributes or arbitrary substring class/ID matches as scan roots. The scanner now uses narrower explicit Rufus prefix/suffix discovery, and Returns limits scanning to known selectors. Generic `data-action` and `data-csa-c-slot-id` Rufus metadata can still contribute identity evidence, but it is not sufficient by itself to make an arbitrary return control a suppression candidate.
+
 Permanent Chromium regression coverage verifies that:
 
 - the Rufus shopping panel is suppressed on Returns;
 - the dock gutter is repaired;
 - Rufus-powered return reason, follow-up, suggestion, and textarea components remain visible and usable;
+- legitimate return controls with generic Rufus-like class/data metadata remain visible, including dynamically inserted controls;
 - those same shopping-suggestion surfaces remain suppressible on ordinary non-Returns pages.
 
 The publisher live-tested the affected signed-in return prompt after the fix and confirmed it worked while Alexa/Rufus shopping suppression remained active.
