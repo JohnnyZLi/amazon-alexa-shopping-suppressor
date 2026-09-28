@@ -22,7 +22,8 @@ Alexa Shopping Suppressor for Amazon handles both parts of that problem:
 - provides a toolbar On/Off switch and remembers that preference locally,
 - restores extension-managed Rufus styles and dock state when turned Off,
 - follows the browser/system light or dark color scheme in its popup,
-- deliberately avoids recognized checkout and returns flows,
+- leaves recognized active checkout flows untouched,
+- keeps Returns suppression active with additional safeguards for Rufus-powered return controls,
 - runs entirely in the browser with no analytics, telemetry, remote code, or network requests.
 
 The extension uses a conservative fail-open design. Broad Rufus-like DOM matches are treated only as candidates and must pass safety checks before being modified. If a dynamically managed element stops looking like Alexa/Rufus UI, the extension restores the inline styles it changed.
