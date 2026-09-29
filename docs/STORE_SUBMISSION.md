@@ -19,14 +19,15 @@ This document tracks the remaining work between the current release candidate an
 - [x] Broad selectors routed through fail-open JavaScript validation
 - [x] Managed inline styles are restorable if element identity changes
 - [x] Dock-padding repair requires explicit Rufus dock evidence
-- [x] Recognized checkout/returns routes are intentionally inactive
+- [x] Recognized active checkout routes are intentionally inactive
+- [x] Returns stays suppressor-active with guarded discovery that preserves Rufus-powered return controls
 - [x] Known post-purchase thank-you/order-confirmation routes resume suppression and gutter repair
 - [x] Sensitive-route deactivation restores recorded Rufus dock state
 - [x] Same-document pushState/replaceState route changes are observed through the Chromium Navigation API
 - [x] Deterministic packaging script includes popup runtime assets
 - [x] Static/security CI validation
-- [x] Synthetic Chromium regression suite
-- [x] Adversarial Chromium regression suite
+- [x] Synthetic Chromium regression suite — 25 permanent checks
+- [x] Adversarial Chromium regression suite — 5 permanent checks
 - [x] Real Chromium persistence test across complete browser-process restarts
 - [x] CI uploads the exact candidate ZIP + SHA-256 artifact
 - [x] Tag-driven GitHub release packaging
@@ -37,7 +38,7 @@ This document tracks the remaining work between the current release candidate an
 - [x] Manual browser regression plan documented in `docs/TEST_PLAN.md`
 - [x] Live real-extension smoke coverage across all 23 supported Amazon marketplaces
 - [x] First-release marketplace scope decision: retain all 23 supported storefronts
-- [x] Deep Amazon US acceptance on the 1.0.0 release tree: homepage, search, product, cart, direct/external navigation, Back/Forward, resize, two-tab toggle, saved-Off fresh tab, public account/orders routes, checkout/returns route inactivity, popup light/dark behavior, and live-tab stability all passed
+- [x] Deep Amazon US acceptance on the 1.0.0 release tree: homepage, search, product, cart, direct/external navigation, Back/Forward, resize, two-tab toggle, saved-Off fresh tab, public account/orders routes, checkout safety, Returns compatibility, popup light/dark behavior, and live-tab stability all passed
 - [x] Earlier 30-minute live Amazon tab acceptance passed; the final 1.0.0-tree rerun used a shorter live-tab interval because the runtime delta was already covered by release CI and confirmation-route regression tests
 - [ ] Complete authenticated Amazon Orders / Account / Checkout / Returns acceptance in the publisher's normal Chrome session
 
